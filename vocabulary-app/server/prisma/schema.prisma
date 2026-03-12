@@ -1,0 +1,30 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+// Model for the weekly table. Each entry represents a week.
+model WeeklyTable {
+  id        Int      @id @default(autoincrement())
+  weekNumber Int
+  year      Int
+  words     VocabularyWord[]
+  
+  @@unique([weekNumber, year])
+}
+
+// Model for individual vocabulary words.
+model VocabularyWord {
+  id           Int      @id @default(autoincrement())
+  wordText     String
+  dayOfWeek    String // e.g., "Monday", "Tuesday"
+  weeklyTable  WeeklyTable @relation(fields: [weeklyTableId], references: [id])
+  weeklyTableId Int
+}

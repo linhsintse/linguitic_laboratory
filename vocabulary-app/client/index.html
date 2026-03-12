@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8"/>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+    <title>My Study Notebook - VocabTracker</title>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet"/>
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@100..700&display=swap" rel="stylesheet"/>
+    <link href="/src/style.css" rel="stylesheet">
+</head>
+<body class="antialiased">
+<div class="relative flex min-h-screen w-full flex-col overflow-x-hidden">
+<div class="layout-container flex h-full grow flex-col">
+<header class="flex items-center justify-between border-b border-primary-accent/10 bg-white/80 backdrop-blur-sm px-6 lg:px-40 py-4">
+<div class="flex items-center gap-3">
+<div class="flex items-center justify-center p-2 rounded bg-primary-accent text-white">
+<span class="material-symbols-outlined text-xl">auto_stories</span>
+</div>
+<h2 class="font-heading text-xl tracking-tight text-primary-accent">VOCABTRACKER</h2>
+</div>
+<div class="flex gap-4">
+<button class="flex h-10 w-10 items-center justify-center rounded border border-subtle-grey bg-white text-primary-accent hover:bg-slate-50 transition-colors">
+<span class="material-symbols-outlined text-xl">settings</span>
+</button>
+<button class="flex h-10 w-10 items-center justify-center rounded border border-subtle-grey bg-white text-primary-accent hover:bg-slate-50 transition-colors">
+<span class="material-symbols-outlined text-xl">account_circle</span>
+</button>
+</div>
+</header>
+<main class="flex-1 flex flex-col px-6 lg:px-40 py-10 gap-10">
+<div class="flex flex-col md:flex-row md:items-center justify-between gap-6">
+<nav class="flex items-center bg-slate-100 p-1 rounded border border-slate-200">
+<a class="flex items-center gap-2 px-6 py-2 rounded font-heading text-xs uppercase tracking-wider text-primary-accent/60 hover:text-primary-accent transition-colors" href="#">
+                        My Desk
+                    </a>
+<a class="flex items-center gap-2 px-6 py-2 rounded bg-white font-heading text-xs uppercase tracking-wider text-primary-accent shadow-sm border border-slate-200" href="#">
+                        Weekly Words
+                    </a>
+<a class="flex items-center gap-2 px-6 py-2 rounded font-heading text-xs uppercase tracking-wider text-primary-accent/60 hover:text-primary-accent transition-colors" href="#">
+                        Growth
+                    </a>
+</nav>
+</div>
+<div class="flex flex-col gap-8">
+<div class="flex flex-col gap-2">
+<h1 class="text-4xl font-heading text-primary-accent uppercase tracking-tight">My Weekly Words</h1>
+<div class="h-1 w-20 bg-primary-accent"></div>
+</div>
+<div class="flex flex-col gap-6">
+<div class="w-full overflow-hidden bg-white hand-drawn-border p-6 shadow-sm">
+<div class="overflow-x-auto">
+<table class="w-full border-separate border-spacing-[2px]">
+<thead>
+<tr>
+<th class="px-2 py-4 text-center font-heading text-2xl text-primary-accent min-w-[140px]">
+    <div class="flex items-center justify-center gap-2">
+        <span>Mon</span>
+        <span class="material-symbols-outlined text-lg cursor-pointer" data-day="Monday" id="edit-Mon-button">edit</span>
+    </div>
+</th>
+<th class="px-2 py-4 text-center font-heading text-2xl text-primary-accent min-w-[140px]">
+    <div class="flex items-center justify-center gap-2">
+        <span>Tue</span>
+        <span class="material-symbols-outlined text-lg cursor-pointer" data-day="Tuesday" id="edit-Tue-button">edit</span>
+    </div>
+</th>
+<th class="px-2 py-4 text-center font-heading text-2xl text-primary-accent min-w-[140px]">
+    <div class="flex items-center justify-center gap-2">
+        <span>Wed</span>
+        <span class="material-symbols-outlined text-lg cursor-pointer" data-day="Wednesday" id="edit-Wed-button">edit</span>
+    </div>
+</th>
+<th class="px-2 py-4 text-center font-heading text-2xl text-primary-accent min-w-[140px]">
+    <div class="flex items-center justify-center gap-2">
+        <span>Thu</span>
+        <span class="material-symbols-outlined text-lg cursor-pointer" data-day="Thursday" id="edit-Thu-button">edit</span>
+    </div>
+</th>
+<th class="px-2 py-4 text-center font-heading text-2xl text-primary-accent min-w-[140px]">
+    <div class="flex items-center justify-center gap-2">
+        <span>Fri</span>
+        <span class="material-symbols-outlined text-lg cursor-pointer" data-day="Friday" id="edit-Fri-button">edit</span>
+    </div>
+</th>
+<th class="px-2 py-4 text-center font-heading text-2xl text-primary-accent min-w-[140px]">
+    <div class="flex items-center justify-center gap-2">
+        <span>Sat</span>
+        <span class="material-symbols-outlined text-lg cursor-pointer" data-day="Saturday" id="edit-Sat-button">edit</span>
+    </div>
+</th>
+<th class="px-2 py-4 text-center font-heading text-2xl text-primary-accent min-w-[140px]">
+    <div class="flex items-center justify-center gap-2">
+        <span>Sun</span>
+        <span class="material-symbols-outlined text-lg cursor-pointer" data-day="Sunday" id="edit-Sun-button">edit</span>
+    </div>
+</th>
+</tr>
+</thead>
+<tbody id="words-table-body">
+</tbody>
+</table>
+</div>
+</div>
+<div class="flex items-center justify-between px-2">
+<button id="last-week-button" class="flex items-center gap-2 px-6 py-2 rounded border border-primary-accent/30 font-heading text-sm uppercase tracking-wider text-primary-accent hover:bg-primary-accent hover:text-white transition-all">
+<span class="material-symbols-outlined text-sm">west</span> Last Week
+                        </button>
+<div class="flex flex-col items-center">
+<span class="font-heading text-lg text-primary-accent">CURRENT ADVENTURE</span>
+<span id="week-display" class="text-xs font-body text-ink/60 uppercase tracking-widest">Week 42 — October</span>
+</div>
+<button id="next-week-button" class="flex items-center gap-2 px-6 py-2 rounded border border-primary-accent/30 font-heading text-sm uppercase tracking-wider text-primary-accent hover:bg-primary-accent hover:text-white transition-all">
+                            Next Week <span class="material-symbols-outlined text-sm">east</span>
+</button>
+</div>
+</div>
+<div class="flex flex-wrap justify-center items-center gap-6 py-8">
+<button id="save-progress-button" class="flex min-w-[200px] items-center justify-center gap-3 rounded h-12 px-10 bg-primary-accent text-white font-heading text-sm uppercase tracking-widest hover:bg-slate-700 transition-all shadow-sm">
+<span class="material-symbols-outlined text-xl">save</span>
+                        Keep Progress
+                    </button>
+<button id="start-fresh-button" class="flex min-w-[200px] items-center justify-center gap-3 rounded h-12 px-10 border border-primary-accent text-primary-accent font-heading text-sm uppercase tracking-widest hover:bg-slate-50 transition-all">
+<span class="material-symbols-outlined text-xl">refresh</span>
+                        Start Fresh
+                    </button>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-10 mt-4 border-t border-slate-300 pt-10">
+<div class="flex flex-col gap-4">
+<div class="flex items-center gap-3 text-primary-accent">
+<span class="material-symbols-outlined text-2xl">lightbulb</span>
+<h3 class="font-heading text-lg uppercase">A Little Goal</h3>
+</div>
+<p class="text-sm text-ink/70 leading-relaxed">
+                            Try to pick up 5 to 10 words today. It's okay if I skip a day, as long as I keep coming back!
+                        </p>
+</div>
+<div class="flex flex-col gap-4">
+<div class="flex items-center gap-3 text-primary-accent">
+<span class="material-symbols-outlined text-2xl">inventory_2</span>
+<h3 class="font-heading text-lg uppercase">Take it Easy</h3>
+</div>
+<p class="text-sm text-ink/70 leading-relaxed">
+                            Review my old lists before starting new ones. Seeing them again makes them stick in my heart better.
+                        </p>
+</div>
+<div class="flex flex-col gap-4">
+<div class="flex items-center gap-3 text-primary-accent">
+<span class="material-symbols-outlined text-2xl">rate_review</span>
+<h3 class="font-heading text-lg uppercase">Real Talk</h3>
+</div>
+<p class="text-sm text-ink/70 leading-relaxed">
+                            Instead of just a word, I should try to write down how people actually say it. It helps me remember!
+                        </p>
+</div>
+</div>
+</div>
+</main>
+<footer class="border-t border-slate-200 py-10 px-6 lg:px-40 bg-white/50">
+<div class="flex flex-col md:flex-row justify-between items-center gap-6">
+<p class="font-body text-sm text-ink/60 uppercase tracking-widest">Made with care for my learning journey — 2024</p>
+<div class="flex gap-8">
+<a class="font-heading text-xs uppercase tracking-widest text-ink/60 hover:text-primary-accent transition-colors" href="#">Little Rules</a>
+<a class="font-heading text-xs uppercase tracking-widest text-ink/60 hover:text-primary-accent transition-colors" href="#">Secrets</a>
+<a class="font-heading text-xs uppercase tracking-widest text-ink/60 hover:text-primary-accent transition-colors" href="#">Say Hello</a>
+</div>
+</div>
+</footer>
+</div>
+</div>
+<script type="module" src="/src/main.ts"></script>
+</body>
+</html>

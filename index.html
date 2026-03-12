@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>My Study Notebook - VocabTracker</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@100..700&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary-accent": "#2c3e50", // Refined charcoal grey/deep blue
+                        "notebook-beige": "#fdf8f1", // Warm Light Beige
+                        "ink": "#333333", // Darker ink for better legibility
+                        "subtle-grey": "#e2e8f0"
+                    },
+                    fontFamily: {
+                        "heading": ["'Montserrat'", "sans-serif"],
+                        "body": ["'Inter'", "sans-serif"],
+                        "sans": ["'Inter'", "sans-serif"]
+                    },
+                },
+            },
+        }
+    </script>
+<style type="text/tailwindcss">
+        @layer base {
+            body {
+                @apply bg-notebook-beige text-ink font-body;
+            }
+        }
+        .hand-drawn-border {
+            border: 2px solid #2c3e50;
+            border-radius: 4px;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        input:focus {
+            outline: none;
+            box-shadow: 0 0 0 2px rgba(44, 62, 80, 0.1);
+            border-color: #2c3e50 !important;
+        }
+        .table-input::placeholder {
+            color: #94a3b8;
+            opacity: 0.6;
+        }
+    </style>
+</head>
+<body class="antialiased">
+<div class="relative flex min-h-screen w-full flex-col overflow-x-hidden">
+<div class="layout-container flex h-full grow flex-col">
+<header class="flex items-center justify-between border-b border-primary-accent/10 bg-white/80 backdrop-blur-sm px-6 lg:px-40 py-4">
+<div class="flex items-center gap-3">
+<div class="flex items-center justify-center p-2 rounded bg-primary-accent text-white">
+<span class="material-symbols-outlined text-xl">auto_stories</span>
+</div>
+<h2 class="font-heading text-xl tracking-tight text-primary-accent">VOCABTRACKER</h2>
+</div>
+<div class="flex gap-4">
+<button class="flex h-10 w-10 items-center justify-center rounded border border-subtle-grey bg-white text-primary-accent hover:bg-slate-50 transition-colors">
+<span class="material-symbols-outlined text-xl">settings</span>
+</button>
+<button class="flex h-10 w-10 items-center justify-center rounded border border-subtle-grey bg-white text-primary-accent hover:bg-slate-50 transition-colors">
+<span class="material-symbols-outlined text-xl">account_circle</span>
+</button>
+</div>
+</header>
+<main class="flex-1 flex flex-col px-6 lg:px-40 py-10 gap-10">
+<div class="flex flex-col md:flex-row md:items-center justify-between gap-6">
+<nav class="flex items-center bg-slate-100 p-1 rounded border border-slate-200">
+<a class="flex items-center gap-2 px-6 py-2 rounded font-heading text-xs uppercase tracking-wider text-primary-accent/60 hover:text-primary-accent transition-colors" href="#">
+                        My Desk
+                    </a>
+<a class="flex items-center gap-2 px-6 py-2 rounded bg-white font-heading text-xs uppercase tracking-wider text-primary-accent shadow-sm border border-slate-200" href="#">
+                        Weekly Words
+                    </a>
+<a class="flex items-center gap-2 px-6 py-2 rounded font-heading text-xs uppercase tracking-wider text-primary-accent/60 hover:text-primary-accent transition-colors" href="#">
+                        Growth
+                    </a>
+</nav>
+</div>
+<div class="flex flex-col gap-8">
+<div class="flex flex-col gap-2">
+<h1 class="text-4xl font-heading text-primary-accent uppercase tracking-tight">My Weekly Words</h1>
+<div class="h-1 w-20 bg-primary-accent"></div>
+</div>
+<div class="flex flex-col gap-6">
+<div class="w-full overflow-hidden bg-white hand-drawn-border p-6 shadow-sm">
+<div class="overflow-x-auto">
+<noscript>
+</noscript><table class="w-full border-separate border-spacing-[2px]">
+<thead>
+<tr>
+<th class="px-2 py-4 text-center font-heading text-2xl text-primary-accent min-w-[140px]">Mon</th>
+<th class="px-2 py-4 text-center font-heading text-2xl text-primary-accent min-w-[140px]">Tue</th>
+<th class="px-2 py-4 text-center font-heading text-2xl text-primary-accent min-w-[140px]">Wed</th>
+<th class="px-2 py-4 text-center font-heading text-2xl text-primary-accent min-w-[140px]">Thu</th>
+<th class="px-2 py-4 text-center font-heading text-2xl text-primary-accent min-w-[140px]">Fri</th>
+<th class="px-2 py-4 text-center font-heading text-2xl text-primary-accent min-w-[140px]">Sat</th>
+<th class="px-2 py-4 text-center font-heading text-2xl text-primary-accent min-w-[140px]">Sun</th>
+</tr>
+</thead>
+<tbody>
+<script>
+                                        const rows = 10;
+                                        const days = 7;
+                                        let html = '';
+                                        for (let i = 0; i < rows; i++) {
+                                            html += '<tr>';
+                                            for (let j = 0; j < days; j++) {
+                                                html += `<td class="p-0">
+                                                    <div class="m-[1px]">
+                                                        <input class="table-input w-full h-14 px-4 bg-white border border-slate-200 rounded-sm focus:ring-0 text-ink text-base font-body" placeholder="new word..." type="text"/>
+                                                    </div>
+                                                </td>`;
+                                            }
+                                            html += '</tr>';
+                                        }
+                                        document.write(html);
+                                    </script>
+<tr>
+<td class="p-0"><div class="m-[1px]"><input class="table-input w-full h-14 px-4 bg-white border border-slate-200 text-ink text-base font-body" placeholder="new word..." type="text"/></div></td>
+<td class="p-0"><div class="m-[1px]"><input class="table-input w-full h-14 px-4 bg-white border border-slate-200 text-ink text-base font-body" placeholder="new word..." type="text"/></div></td>
+<td class="p-0"><div class="m-[1px]"><input class="table-input w-full h-14 px-4 bg-white border border-slate-200 text-ink text-base font-body" placeholder="new word..." type="text"/></div></td>
+<td class="p-0"><div class="m-[1px]"><input class="table-input w-full h-14 px-4 bg-white border border-slate-200 text-ink text-base font-body" placeholder="new word..." type="text"/></div></td>
+<td class="p-0"><div class="m-[1px]"><input class="table-input w-full h-14 px-4 bg-white border border-slate-200 text-ink text-base font-body" placeholder="new word..." type="text"/></div></td>
+<td class="p-0"><div class="m-[1px]"><input class="table-input w-full h-14 px-4 bg-white border border-slate-200 text-ink text-base font-body" placeholder="new word..." type="text"/></div></td>
+<td class="p-0"><div class="m-[1px]"><input class="table-input w-full h-14 px-4 bg-white border border-slate-200 text-ink text-base font-body" placeholder="new word..." type="text"/></div></td>
+</tr>
+
+</tbody>
+</table>
+</div>
+</div>
+<div class="flex items-center justify-between px-2">
+<button class="flex items-center gap-2 px-6 py-2 rounded border border-primary-accent/30 font-heading text-sm uppercase tracking-wider text-primary-accent hover:bg-primary-accent hover:text-white transition-all">
+<span class="material-symbols-outlined text-sm">west</span> Last Week
+                        </button>
+<div class="flex flex-col items-center">
+<span class="font-heading text-lg text-primary-accent">CURRENT ADVENTURE</span>
+<span class="text-xs font-body text-ink/60 uppercase tracking-widest">Week 42 — October</span>
+</div>
+<button class="flex items-center gap-2 px-6 py-2 rounded border border-primary-accent/30 font-heading text-sm uppercase tracking-wider text-primary-accent hover:bg-primary-accent hover:text-white transition-all">
+                            Next Week <span class="material-symbols-outlined text-sm">east</span>
+</button>
+</div>
+</div>
+<div class="flex flex-wrap justify-center items-center gap-6 py-8">
+<button class="flex min-w-[200px] items-center justify-center gap-3 rounded h-12 px-10 bg-primary-accent text-white font-heading text-sm uppercase tracking-widest hover:bg-slate-700 transition-all shadow-sm">
+<span class="material-symbols-outlined text-xl">save</span>
+                        Keep Progress
+                    </button>
+<button class="flex min-w-[200px] items-center justify-center gap-3 rounded h-12 px-10 border border-primary-accent text-primary-accent font-heading text-sm uppercase tracking-widest hover:bg-slate-50 transition-all">
+<span class="material-symbols-outlined text-xl">refresh</span>
+                        Start Fresh
+                    </button>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-10 mt-4 border-t border-slate-300 pt-10">
+<div class="flex flex-col gap-4">
+<div class="flex items-center gap-3 text-primary-accent">
+<span class="material-symbols-outlined text-2xl">lightbulb</span>
+<h3 class="font-heading text-lg uppercase">A Little Goal</h3>
+</div>
+<p class="text-sm text-ink/70 leading-relaxed">
+                            Try to pick up 5 to 10 words today. It's okay if I skip a day, as long as I keep coming back!
+                        </p>
+</div>
+<div class="flex flex-col gap-4">
+<div class="flex items-center gap-3 text-primary-accent">
+<span class="material-symbols-outlined text-2xl">inventory_2</span>
+<h3 class="font-heading text-lg uppercase">Take it Easy</h3>
+</div>
+<p class="text-sm text-ink/70 leading-relaxed">
+                            Review my old lists before starting new ones. Seeing them again makes them stick in my heart better.
+                        </p>
+</div>
+<div class="flex flex-col gap-4">
+<div class="flex items-center gap-3 text-primary-accent">
+<span class="material-symbols-outlined text-2xl">rate_review</span>
+<h3 class="font-heading text-lg uppercase">Real Talk</h3>
+</div>
+<p class="text-sm text-ink/70 leading-relaxed">
+                            Instead of just a word, I should try to write down how people actually say it. It helps me remember!
+                        </p>
+</div>
+</div>
+</div>
+</main>
+<footer class="border-t border-slate-200 py-10 px-6 lg:px-40 bg-white/50">
+<div class="flex flex-col md:flex-row justify-between items-center gap-6">
+<p class="font-body text-sm text-ink/60 uppercase tracking-widest">Made with care for my learning journey — 2024</p>
+<div class="flex gap-8">
+<a class="font-heading text-xs uppercase tracking-widest text-ink/60 hover:text-primary-accent transition-colors" href="#">Little Rules</a>
+<a class="font-heading text-xs uppercase tracking-widest text-ink/60 hover:text-primary-accent transition-colors" href="#">Secrets</a>
+<a class="font-heading text-xs uppercase tracking-widest text-ink/60 hover:text-primary-accent transition-colors" href="#">Say Hello</a>
+</div>
+</div>
+</footer>
+</div>
+</div>
+
+</body></html>
