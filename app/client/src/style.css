@@ -2,3 +2,21 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Typography & Custom Styles from Morphology Library */
+.main-title { font-family: 'Georgia', serif; font-weight: 700; letter-spacing: -0.02em; }
+.subtitle { letter-spacing: 0.2em; font-size: 0.65rem; color: #8a8a8a; text-transform: uppercase; }
+.section-label { letter-spacing: 0.15em; font-size: 0.7rem; color: #8a8a8a; text-transform: uppercase; }
+
+/* Material Symbols Settings */
+.material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24; }
+
+/* Custom scrollbar for the table container */
+.table-container::-webkit-scrollbar { height: 6px; }
+.table-container::-webkit-scrollbar-track { background: #f9f9f9; }
+.table-container::-webkit-scrollbar-thumb { background: #e5e5e5; border-radius: 3px; }
+.table-container::-webkit-scrollbar-thumb:hover { background: #8a8a8a; }
+
+/* Utility classes matching the input configuration */
+.text-brand-gray { color: #8a8a8a; }
+.border-brand-border { border-color: #e5e5e5; }
