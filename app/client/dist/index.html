@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>The Linguistic Laboratory - ACTA ACADEMY</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:ital,wght@0,400;0,600;0,700;1,400&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<script>
+        tailwind.config = {
+          theme: {
+            extend: {
+              fontFamily: {
+                serif: ['"Crimson Pro"', 'serif'],
+                sans: ['Inter', 'sans-serif'],
+              },
+              colors: {
+                'academic-gray': '#F9F9F9',
+                'border-light': '#E5E5E5',
+                'text-muted': '#9CA3AF',
+                'accent-black': '#111111',
+              }
+            }
+          }
+        }
+      </script>
+<style type="text/tailwindcss">
+        body {
+          background-color: #FFFFFF;
+          color: #111111;
+          font-size: 14px;
+        }
+        .academic-title {
+          font-size: 2.25rem;
+          letter-spacing: -0.01em;
+        }
+        .nav-link {
+          letter-spacing: 0.1em;
+          font-weight: 500;
+          font-size: 0.75rem;
+          transition: all 0.2s;
+        }
+        .placeholder-text {
+          font-style: italic;
+          color: #D1D5DB;
+        }
+        .morpheme-guide {
+          font-size: 0.65rem;
+          color: #9CA3AF;
+          border-bottom: 1px dotted #D1D5DB;
+        }
+        .calendar-container {
+          overflow-x: auto;
+          height: 80vh;
+        }
+        .calendar-grid {
+          display: grid;
+          grid-template-columns: repeat(7, 1fr);
+          min-width: 1400px;
+        }
+        .day-column {
+          border-right: 1px solid #E5E5E5;
+          min-width: 200px;
+        }
+        .day-column:last-child {
+          border-right: none;
+        }
+        .word-slot {
+          border-bottom: 1px solid #F3F4F6;
+          position: relative;
+        }
+        .word-slot .edit-button {
+            display: none;
+            position: absolute;
+            right: 5px;
+            top: 5px;
+            cursor: pointer;
+        }
+        .word-slot:hover .edit-button {
+            display: block;
+        }
+
+    </style>
+  <script type="module" crossorigin src="/assets/index-9DT7FfDq.js"></script>
+  <link rel="stylesheet" crossorigin href="/assets/index-CuKLoIzV.css">
+</head>
+<body class="font-sans antialiased">
+    <div id="app"></div>
+</body></html>

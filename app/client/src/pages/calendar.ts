@@ -2,12 +2,22 @@
 interface VocabularyWord {
   id: number;
   wordText: string;
-  dayOfWeek: string;
+  dayOfWeek: number;
+  position: number;
 }
 
 // The base URL for the backend API.
-const API_URL = 'http://localhost:3002/api';
+const API_URL = 'http://localhost:3000/api';
 const DAYS = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
+const DAY_MAP: { [key: string]: number } = {
+    'MON': 0,
+    'TUE': 1,
+    'WED': 2,
+    'THU': 3,
+    'FRI': 4,
+    'SAT': 5,
+    'SUN': 6,
+};
 
 // --- State ---
 let weekOffset = 0;
@@ -113,9 +123,9 @@ async function createAndPopulateCalendar() {
         }
 
         words.forEach(word => {
-            const dayShort = word.dayOfWeek.substring(0, 3).toUpperCase();
-            if (wordsByDay[dayShort]) {
-                wordsByDay[dayShort].push(word.wordText);
+            const dayShort = Object.keys(DAY_MAP).find(key => DAY_MAP[key] === word.dayOfWeek);
+            if (dayShort && wordsByDay[dayShort]) {
+                wordsByDay[dayShort][word.position] = word.wordText;
             }
         });
     }
@@ -242,14 +252,14 @@ async function saveCalendarData() {
     const monday = getWeekMonday(weekOffset);
 
     for (const day in wordsByDay) {
-        wordsByDay[day].forEach(wordText => {
-            const dayOfWeek = day === 'SUN' ? 'Sunday' : day === 'MON' ? 'Monday' : day === 'TUE' ? 'Tuesday' : day === 'WED' ? 'Wednesday' : day === 'THU' ? 'Thursday' : day === 'FRI' ? 'Friday' : 'Saturday';
+        wordsByDay[day].forEach((wordText, position) => {
+            const dayOfWeek = DAY_MAP[day];
 
-            if (wordText && dayOfWeek) {
+            if (wordText && dayOfWeek !== undefined) {
                 savePromises.push(fetch(`${API_URL}/words`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ wordText, dayOfWeek, date: monday.toISOString() }),
+                    body: JSON.stringify({ wordText, date: monday.toISOString(), dayOfWeek, position }),
                 }).catch(error => console.error('Failed to save word:', error)));
             }
         });
