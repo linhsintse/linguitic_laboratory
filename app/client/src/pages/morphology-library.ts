@@ -163,31 +163,61 @@ function renderMainContent(m: Morpheme) {
             </div>
 
             <div class="space-y-0 text-sm text-gray-500 italic p-4 text-center bg-gray-50 rounded" id="annotated-words-list">
-                No personal annotated words linked to this morpheme yet.
+                Loading...
             </div>
         </div>
     `;
 
-    // Add Accordion listeners
-    const list = document.getElementById('annotated-words-list');
-    if (list) {
-        list.querySelectorAll('.annotated-word-item').forEach(item => {
-            const toggleBtn = item.querySelector('.toggle-btn');
-            const contentArea = item.querySelector('.content-area');
-            const svgIcon = item.querySelector('svg');
+    // Fetch and populate annotated words
+    fetch(`${API_URL}/morphemes/${m.id}/words`)
+        .then(res => res.json())
+        .then(words => {
+            const list = document.getElementById('annotated-words-list');
+            if (list) {
+                if (words && words.length > 0) {
+                    list.className = "space-y-0 text-sm text-gray-700";
+                    list.innerHTML = words.map((w: any) => `
+                        <div class="annotated-word-item border-b border-gray-200 last:border-0 py-3 cursor-pointer group hover:bg-gray-50 px-2 rounded -mx-2 transition-colors">
+                            <div class="flex justify-between items-center toggle-btn">
+                                <span class="font-bold text-gray-900 font-serif tracking-wide text-base capitalize">${w.text}</span>
+                                <svg class="w-5 h-5 text-gray-400 group-hover:text-black transition-transform duration-200 transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                            </div>
+                            <div class="content-area hidden mt-3 pl-4 border-l-2 border-gray-200 text-gray-600 pb-2">
+                                <p class="mb-1"><span class="font-semibold text-xs uppercase tracking-wider text-gray-400">Word:</span> ${w.text}</p>
+                            </div>
+                        </div>
+                    `).join('');
 
-            if (toggleBtn && contentArea && svgIcon) {
-                toggleBtn.addEventListener('click', () => {
-                    const isHidden = contentArea.classList.contains('hidden');
-                    if (isHidden) {
-                        contentArea.classList.remove('hidden');
-                        svgIcon.classList.add('rotate-180');
-                    } else {
-                        contentArea.classList.add('hidden');
-                        svgIcon.classList.remove('rotate-180');
-                    }
-                });
+                    // Add Accordion listeners
+                    list.querySelectorAll('.annotated-word-item').forEach(item => {
+                        const toggleBtn = item.querySelector('.toggle-btn');
+                        const contentArea = item.querySelector('.content-area');
+                        const svgIcon = item.querySelector('svg');
+
+                        if (toggleBtn && contentArea && svgIcon) {
+                            toggleBtn.addEventListener('click', () => {
+                                const isHidden = contentArea.classList.contains('hidden');
+                                if (isHidden) {
+                                    contentArea.classList.remove('hidden');
+                                    svgIcon.classList.add('rotate-180');
+                                } else {
+                                    contentArea.classList.add('hidden');
+                                    svgIcon.classList.remove('rotate-180');
+                                }
+                            });
+                        }
+                    });
+                } else {
+                    list.className = "space-y-0 text-sm text-gray-500 italic p-4 text-center bg-gray-50 rounded";
+                    list.innerHTML = "No personal annotated words linked to this morpheme yet.";
+                }
+            }
+        })
+        .catch(() => {
+            const list = document.getElementById('annotated-words-list');
+            if (list) {
+                list.className = "space-y-0 text-sm text-red-500 italic p-4 text-center bg-gray-50 rounded";
+                list.innerHTML = "Failed to load words.";
             }
         });
-    }
 }

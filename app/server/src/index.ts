@@ -10,10 +10,10 @@ app.use(express.json());
 // The POST route to handle user input
 app.post('/api/words', async (req, res) => {
   try {
-    const { wordText, date, dayOfWeek, position } = req.body;
+    const { wordText, date, dayOfWeek, position, morphemeString } = req.body;
 
     // Call the isolated database logic
-    const newEntry = await addWordToWeek(wordText, date, dayOfWeek, position);
+    const newEntry = await addWordToWeek(wordText, date, dayOfWeek, position, morphemeString);
 
     // Send the successful response back to the frontend
     res.status(201).json(newEntry);
@@ -42,7 +42,35 @@ app.get('/api/words', async (req, res) => {
 
     // 3. Only call the database if validation passes
     const entries = await getWordsForWeek(dateParam);
-    res.status(200).json(entries);
+
+    // Reconstruct morphemeString for frontend
+    const mappedEntries = entries.map(entry => {
+      let morphemeString = '';
+      if (entry.word && entry.word.morphemes && entry.word.morphemes.length > 0) {
+          // Sort morphemes by order if possible, though they might not be stored with explicit order
+          // So we construct a simple one based on types: Prefix, Root, Suffix
+          const prefixes = entry.word.morphemes.filter(wm => wm.morpheme.type === 'PREFIX').map(wm => wm.morpheme.text);
+          const roots = entry.word.morphemes.filter(wm => wm.morpheme.type === 'ROOT').map(wm => `[${wm.morpheme.text}]`);
+          const suffixes = entry.word.morphemes.filter(wm => wm.morpheme.type === 'SUFFIX').map(wm => wm.morpheme.text);
+
+          // Just a simple reconstruction: pre-[dict]-ion
+          let str = "";
+          for (let p of prefixes) { str += p + "-"; }
+          for (let r of roots) { str += r; }
+          for (let s of suffixes) {
+             if (!str.endsWith("-") && str !== "") str += "-";
+             str += s;
+          }
+          morphemeString = str;
+      }
+
+      return {
+        ...entry,
+        morphemeString
+      };
+    });
+
+    res.status(200).json(mappedEntries);
 
   } catch (error) {
     console.error("Failed to fetch words:", error);
@@ -120,6 +148,23 @@ app.get('/api/morphemes', async (req, res) => {
     } catch (error) {
         console.error("Failed to fetch morphemes:", error);
         res.status(500).json({ error: "Internal server error while fetching morphemes." });
+    }
+});
+
+import { getWordsForMorpheme } from './database';
+
+// The GET route to fetch words for a specific morpheme
+app.get('/api/morphemes/:id/words', async (req, res) => {
+    try {
+        const morphemeId = parseInt(req.params.id);
+        if (isNaN(morphemeId)) {
+            return res.status(400).json({ error: "Invalid morpheme ID." });
+        }
+        const words = await getWordsForMorpheme(morphemeId);
+        res.status(200).json(words);
+    } catch (error) {
+        console.error("Failed to fetch words for morpheme:", error);
+        res.status(500).json({ error: "Internal server error while fetching words for morpheme." });
     }
 });
 

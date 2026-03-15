@@ -6,6 +6,7 @@ interface VocabularyWord {
   };
   dayOfWeek: number;
   position: number;
+  morphemeString?: string;
 }
 
 // The base URL for the backend API.
@@ -24,6 +25,7 @@ const DAY_MAP: { [key: string]: number } = {
 // --- State ---
 let weekOffset = 0;
 let wordsByDay: { [key: string]: string[] } = {};
+let morphemesByDay: { [key: string]: string[] } = {};
 let focusWordsByDay: { [key: string]: string } = {};
 
 // --- Functions ---
@@ -87,11 +89,20 @@ function enterEditMode(slot: HTMLElement) {
         const day = (slot as HTMLDivElement).dataset.day!;
         const index = parseInt((slot as HTMLDivElement).dataset.index!);
         
+        // Also grab the morpheme value
+        const morphemeInput = slot.querySelector('.morpheme-guide') as HTMLInputElement;
+        const newMorphemeString = morphemeInput ? morphemeInput.value.trim() : '';
+
         if (!wordsByDay[day]) {
             wordsByDay[day] = [];
         }
         wordsByDay[day][index] = newWord;
         
+        if (!morphemesByDay[day]) {
+            morphemesByDay[day] = [];
+        }
+        morphemesByDay[day][index] = newMorphemeString;
+
         createAndPopulateCalendar();
         await saveCalendarData();
     };
@@ -118,16 +129,21 @@ async function createAndPopulateCalendar() {
     if (Object.keys(wordsByDay).length === 0) {
         const words = await fetchWords(weekOffset);
         wordsByDay = {};
+        morphemesByDay = {};
         focusWordsByDay = {};
 
         for (const day of DAYS) {
             wordsByDay[day] = [];
+            morphemesByDay[day] = [];
         }
 
         words.forEach(word => {
             const dayShort = Object.keys(DAY_MAP).find(key => DAY_MAP[key] === word.dayOfWeek);
             if (dayShort && wordsByDay[dayShort]) {
                 wordsByDay[dayShort][word.position] = word.word.text;
+                if (word.morphemeString) {
+                   morphemesByDay[dayShort][word.position] = word.morphemeString;
+                }
             }
         });
     }
@@ -152,6 +168,7 @@ async function createAndPopulateCalendar() {
             <div class="word-slots-container">
                 ${Array(7).fill(0).map((_, i) => {
                     const word = wordsByDay[day]?.[i] || '';
+                    const morphemeStr = morphemesByDay[day]?.[i] || '';
                     return `
                         <div class="word-slot p-2 h-20 flex flex-col justify-center" data-day="${day}" data-index="${i}">
                             <div class="flex items-start space-x-2">
@@ -163,7 +180,7 @@ async function createAndPopulateCalendar() {
                                     ` : `
                                         <span class="font-serif italic text-lg text-text-muted block leading-none mb-1 cursor-pointer">word...</span>
                                     `}
-                                    <input class="morpheme-guide bg-transparent border-none py-1 mt-1 w-full text-xs" placeholder="prefix[root]suffix" />
+                                    <input class="morpheme-guide bg-transparent border-none py-1 mt-1 w-full text-xs" placeholder="prefix[root]suffix" value="${morphemeStr}" />
                                 </div>
                             </div>
                         </div>
@@ -256,12 +273,13 @@ async function saveCalendarData() {
     for (const day in wordsByDay) {
         wordsByDay[day].forEach((wordText, position) => {
             const dayOfWeek = DAY_MAP[day];
+            const morphemeString = morphemesByDay[day]?.[position] || '';
 
             if (wordText && dayOfWeek !== undefined) {
                 savePromises.push(fetch(`${API_URL}/words`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ wordText, date: monday.toISOString(), dayOfWeek, position }),
+                    body: JSON.stringify({ wordText, date: monday.toISOString(), dayOfWeek, position, morphemeString }),
                 }).catch(error => console.error('Failed to save word:', error)));
             }
         });
