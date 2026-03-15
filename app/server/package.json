@@ -2,6 +2,9 @@
   "name": "vocabulary-server",
   "version": "1.0.0",
   "private": true,
+  "prisma":{
+    "seed": "ts-node-dev --transpile-only src/seed.ts"
+  },
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
     "build": "tsc",

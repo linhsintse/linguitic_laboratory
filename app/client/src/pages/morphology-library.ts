@@ -54,10 +54,7 @@ export async function renderMorphologyLibrary(element: HTMLElement) {
         renderSidebarList(allMorphemes);
 
         // Render a default one if available
-        const dict = allMorphemes.find(m => m.text.toLowerCase().includes('dict'));
-        if (dict) {
-            renderMainContent(dict);
-        } else if (allMorphemes.length > 0) {
+        if (allMorphemes.length > 0) {
             renderMainContent(allMorphemes[0]);
         }
 
@@ -96,7 +93,6 @@ function renderSidebarList(morphemes: Morpheme[]) {
                 <span class="font-bold text-gray-900">${formatMorphemeText(m)}</span>
                 <span class="text-sm text-gray-400 ml-2 uppercase text-xs tracking-wider">${m.meaning || 'UNKNOWN'}</span>
             </div>
-             ${m.text.includes('dict') ? '<svg class="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"></path></svg>' : ''}
         </div>
     `).join('');
 
@@ -113,7 +109,7 @@ function renderSidebarList(morphemes: Morpheme[]) {
 }
 
 function formatMorphemeText(m: Morpheme): string {
-    let text = m.text.toUpperCase();
+    let text = m.text.toUpperCase().replace(/^-|-$/g, '');
     if (m.type === 'prefix') {
         return text + '-';
     } else if (m.type === 'suffix') {
@@ -123,7 +119,7 @@ function formatMorphemeText(m: Morpheme): string {
 }
 
 function formatMorphemeTextMain(m: Morpheme): string {
-    let text = m.text.toUpperCase();
+    let text = m.text.toUpperCase().replace(/^-|-$/g, '');
     if (m.type === 'prefix') {
         return text + '-';
     } else if (m.type === 'suffix') {
