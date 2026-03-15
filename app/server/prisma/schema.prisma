@@ -35,10 +35,16 @@ model WeeklyEntry {
 }
 
 model Morpheme {
-  id    Int            @id @default(autoincrement())
-  type  String         // 'prefix', 'root', 'suffix'
-  text  String         @unique
-  words WordMorpheme[]
+  id        Int            @id @default(autoincrement())
+  type      String         // 'prefix', 'root', 'suffix'
+  text      String         
+  meaning   String
+  origin    String?        // e.g., 'OE', 'L', 'G', 'F'
+  frequency Int?           // 1-100 score
+  category  String?        // Maps to Category, Semantic Field, or Transformation
+  words     WordMorpheme[]
+
+  @@unique([text, meaning])
 }
 
 // Explicit Many-to-Many Join Table

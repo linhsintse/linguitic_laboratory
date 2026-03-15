@@ -16,6 +16,8 @@
     "vite": "^7.3.1"
   },
   "dependencies": {
-    "navigo": "^8.11.1"
+    "fs": "^0.0.1-security",
+    "navigo": "^8.11.1",
+    "path": "^0.12.7"
   }
 }
