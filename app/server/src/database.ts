@@ -225,10 +225,12 @@ export async function deleteWordsForWeek(date: string) {
 export async function addMorphemeToWord(
   wordText: string,
   morphemeText: string,
-  morphemeType: 'prefix' | 'root' | 'suffix'
+  morphemeType: 'prefix' | 'root' | 'suffix',
+  meaning: string
 ) {
   const formattedWord = wordText.trim().toLowerCase();
   const formattedMorpheme = morphemeText.trim().toLowerCase();
+  const formattedMeaning = meaning.trim();
 
   try {
     const wordMorphemeLink = await prisma.wordMorpheme.create({
@@ -241,9 +243,15 @@ export async function addMorphemeToWord(
         },
         morpheme: {
           connectOrCreate: {
-            where: { text: formattedMorpheme },
+            where: {
+              text_meaning: {
+                text: formattedMorpheme,
+                meaning: formattedMeaning,
+              }
+            },
             create: { 
               text: formattedMorpheme,
+              meaning: formattedMeaning,
               type: morphemeType
             },
           },
