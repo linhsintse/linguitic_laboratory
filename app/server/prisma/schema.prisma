@@ -8,8 +8,8 @@ datasource db {
 }
 
 model Word {
-  id        Int             @id @default(autoincrement())
-  text      String          @unique
+  id        Int            @id @default(autoincrement())
+  text      String         @unique
   entries   WeeklyEntry[]
   morphemes WordMorpheme[]
 }
@@ -21,27 +21,27 @@ model WeeklyTable {
   entries    WeeklyEntry[]
 
   // Ensures you never have two tables for the exact same week and year
-  @@unique([weekNumber, year]) 
+  @@unique([weekNumber, year])
 }
 
 model WeeklyEntry {
   id            Int         @id @default(autoincrement())
   wordId        Int
   weeklyTableId Int
-  dayOfWeek     Int         // Suggestion: Enforce 0-6 in your TS logic
-  position      Int?        // e.g., 1-10 for the word's order that day
+  dayOfWeek     Int // Suggestion: Enforce 0-6 in your TS logic
+  position      Int? // e.g., 1-10 for the word's order that day
   word          Word        @relation(fields: [wordId], references: [id])
   weeklyTable   WeeklyTable @relation(fields: [weeklyTableId], references: [id])
 }
 
 model Morpheme {
   id        Int            @id @default(autoincrement())
-  type      String         // 'prefix', 'root', 'suffix'
-  text      String         
+  type      String // 'prefix', 'root', 'suffix'
+  text      String
   meaning   String
-  origin    String?        // e.g., 'OE', 'L', 'G', 'F'
-  frequency Int?           // 1-100 score
-  category  String?        // Maps to Category, Semantic Field, or Transformation
+  origin    String? // e.g., 'OE', 'L', 'G', 'F'
+  frequency Int? // 1-100 score
+  category  String? // Maps to Category, Semantic Field, or Transformation
   words     WordMorpheme[]
 
   @@unique([text, meaning])
@@ -55,7 +55,7 @@ model WordMorpheme {
   morpheme   Morpheme @relation(fields: [morphemeId], references: [id])
 
   // The combination of word and morpheme must be unique
-  @@id([wordId, morphemeId]) 
+  @@id([wordId, morphemeId])
 }
 
 model User {
