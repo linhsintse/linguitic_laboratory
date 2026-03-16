@@ -145,7 +145,7 @@ export async function renderVocabularyProgress(element: HTMLElement) {
                                     <!-- Prefixes -->
                                     <div class="flex flex-col">
                                         <div class="flex items-center gap-2 mb-8 text-xs font-bold text-gray-400 uppercase tracking-widest">
-                                            <span class="material-symbols-outlined text-[16px]">start</span> PREFIXES
+                                            <span class="material-symbols-outlined text-[16px]"></span> PREFIXES
                                         </div>
                                         <div class="text-6xl font-serif font-bold text-gray-900 mb-2">${progress.totalPrefixes}</div>
                                         <div class="text-[10px] text-gray-400 uppercase tracking-widest mb-auto">IDENTIFIED ELEMENTS</div>
@@ -161,7 +161,7 @@ export async function renderVocabularyProgress(element: HTMLElement) {
                                     <!-- Suffixes -->
                                     <div class="flex flex-col">
                                         <div class="flex items-center gap-2 mb-8 text-xs font-bold text-gray-400 uppercase tracking-widest">
-                                            <span class="material-symbols-outlined text-[16px]">keyboard_tab_rtl</span> SUFFIXES
+                                            <span class="material-symbols-outlined text-[16px]"></span> SUFFIXES
                                         </div>
                                         <div class="text-6xl font-serif font-bold text-gray-900 mb-2">${progress.totalSuffixes}</div>
                                         <div class="text-[10px] text-gray-400 uppercase tracking-widest mb-auto">IDENTIFIED ELEMENTS</div>
@@ -177,7 +177,7 @@ export async function renderVocabularyProgress(element: HTMLElement) {
                                     <!-- Roots -->
                                     <div class="flex flex-col">
                                         <div class="flex items-center gap-2 mb-8 text-xs font-bold text-gray-400 uppercase tracking-widest">
-                                            <span class="material-symbols-outlined text-[16px]">psychology</span> ROOTS
+                                            <span class="material-symbols-outlined text-[16px]"></span> ROOTS
                                         </div>
                                         <div class="text-6xl font-serif font-bold text-gray-900 mb-2">${progress.totalRoots}</div>
                                         <div class="text-[10px] text-gray-400 uppercase tracking-widest mb-auto">IDENTIFIED ELEMENTS</div>

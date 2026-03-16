@@ -8,30 +8,27 @@ datasource db {
 }
 
 model Word {
-  id        Int            @id @default(autoincrement())
-  text      String         @unique
-  entries   WeeklyEntry[]
+  id        Int              @id @default(autoincrement())
+  text      String           @unique
+  entries   WorksheetEntry[]
   morphemes WordMorpheme[]
 }
 
-model WeeklyTable {
-  id         Int           @id @default(autoincrement())
-  weekNumber Int
-  year       Int
-  entries    WeeklyEntry[]
-
-  // Ensures you never have two tables for the exact same week and year
-  @@unique([weekNumber, year])
+model Worksheet {
+  id        Int              @id @default(autoincrement())
+  name      String?
+  createdAt DateTime         @default(now())
+  entries   WorksheetEntry[]
 }
 
-model WeeklyEntry {
-  id            Int         @id @default(autoincrement())
-  wordId        Int
-  weeklyTableId Int
-  dayOfWeek     Int // Suggestion: Enforce 0-6 in your TS logic
-  position      Int? // e.g., 1-10 for the word's order that day
-  word          Word        @relation(fields: [wordId], references: [id])
-  weeklyTable   WeeklyTable @relation(fields: [weeklyTableId], references: [id])
+model WorksheetEntry {
+  id          Int       @id @default(autoincrement())
+  wordId      Int
+  worksheetId Int
+  columnIndex Int
+  position    Int
+  word        Word      @relation(fields: [wordId], references: [id])
+  worksheet   Worksheet @relation(fields: [worksheetId], references: [id], onDelete: Cascade)
 }
 
 model Morpheme {

@@ -137,7 +137,7 @@ function renderMainContent(m: Morpheme) {
     mainDiv.innerHTML = `
         <div class="max-w-4xl mx-auto">
             <div class="mb-12">
-                <p class="text-xs text-gray-500 uppercase tracking-widest mb-4">— MORPHEME WORKBENCH</p>
+                <p class="text-xs text-gray-500 uppercase tracking-widest mb-4">MORPHEME WORKBENCH</p>
                 <h1 class="text-6xl font-serif font-bold mb-4">${formatMorphemeTextMain(m)}</h1>
                 <p class="text-xl text-gray-500 italic font-serif">${originText}: ${m.text} "${m.meaning || 'unknown'}"</p>
             </div>

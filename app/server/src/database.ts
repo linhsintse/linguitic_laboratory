@@ -3,80 +3,146 @@ import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
 /**
- * Gets the ISO week number and year for a given date.
- * @param date - The date to get the week info for.
+ * Fetches all worksheets ordered by creation date descending.
  */
-function getWeekInfoFromDate(date: Date): { weekNumber: number; year: number } {
-  const sunday = new Date(date.valueOf());
-  sunday.setDate(sunday.getDate() - sunday.getDay());
-  const thursday = new Date(sunday.valueOf());
-  thursday.setDate(sunday.getDate() + 4);
-  const year = thursday.getFullYear();
-  const yearStart = new Date(thursday.getFullYear(), 0, 1);
-  const weekNumber = Math.ceil((((thursday.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
-  return { weekNumber, year };
+export async function getWorksheets() {
+  try {
+    return await prisma.worksheet.findMany({
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+  } catch (error) {
+    console.error("Database Error fetching worksheets:", error);
+    throw error;
+  }
 }
 
 /**
- * Inserts a word into a specific day and week.
- * It intelligently prevents duplicating the core Word or WeeklyTable.
+ * Creates a new worksheet.
  */
-export async function addWordToWeek(
+export async function createWorksheet(name?: string) {
+  try {
+    return await prisma.worksheet.create({
+      data: {
+        name: name || null,
+      },
+    });
+  } catch (error) {
+    console.error("Database Error creating worksheet:", error);
+    throw error;
+  }
+}
+
+/**
+ * Updates a worksheet's name.
+ */
+export async function updateWorksheetName(id: number, name: string) {
+  try {
+    return await prisma.worksheet.update({
+      where: { id },
+      data: { name },
+    });
+  } catch (error) {
+    console.error("Database Error updating worksheet name:", error);
+    throw error;
+  }
+}
+
+/**
+ * Deletes a worksheet.
+ */
+export async function deleteWorksheet(id: number) {
+  try {
+    await prisma.worksheet.delete({
+      where: { id },
+    });
+  } catch (error) {
+    console.error("Database Error deleting worksheet:", error);
+    throw error;
+  }
+}
+
+/**
+ * Fetches entries and words for a specific worksheet.
+ */
+export async function getWordsForWorksheet(worksheetId: number) {
+  try {
+    return await prisma.worksheetEntry.findMany({
+      where: { worksheetId },
+      include: {
+        word: {
+          include: {
+            morphemes: {
+              include: {
+                morpheme: true
+              }
+            }
+          }
+        }
+      },
+      orderBy: [
+        { columnIndex: 'asc' },
+        { position: 'asc' }
+      ]
+    });
+  } catch (error) {
+    console.error("Database Error fetching worksheet words:", error);
+    throw error;
+  }
+}
+
+/**
+ * Adds or updates a word in a specific worksheet and column.
+ */
+export async function addWordToWorksheet(
+  worksheetId: number,
   wordText: string,
-  date: string,
-  dayOfWeek: number,
+  columnIndex: number,
   position: number,
   morphemeString: string = ""
 ) {
-  const { weekNumber, year } = getWeekInfoFromDate(new Date(date));
-  // Objective validation before hitting the DB
-  if (dayOfWeek < 0 || dayOfWeek > 6) throw new Error("dayOfWeek must be between 0 and 6");
-  
   const formattedWord = wordText.trim().toLowerCase();
 
   try {
-    const entry = await prisma.weeklyEntry.create({
+    // Delete existing entry at this position in this worksheet if it exists
+    await prisma.worksheetEntry.deleteMany({
+      where: {
+        worksheetId,
+        columnIndex,
+        position
+      }
+    });
+
+    if (!formattedWord) return null;
+
+    const entry = await prisma.worksheetEntry.create({
       data: {
-        dayOfWeek,
+        columnIndex,
         position,
-        // 1. Handle the Word: Link it if it exists, create it if it doesn't.
         word: {
           connectOrCreate: {
             where: { text: formattedWord },
             create: { text: formattedWord },
           },
         },
-        // 2. Handle the Week: Link it if it exists, create it if it doesn't.
-        weeklyTable: {
-          connectOrCreate: {
-            where: {
-              weekNumber_year: {
-                weekNumber,
-                year,
-              },
-            },
-            create: {
-              weekNumber,
-              year,
-            },
-          },
-        },
+        worksheet: {
+          connect: { id: worksheetId }
+        }
       },
-      // Include the relations in the return object so you can verify the IDs
       include: {
         word: true,
-        weeklyTable: true,
-      },
+        worksheet: true
+      }
     });
 
-    // Handle Morphemes if provided
     if (morphemeString.trim()) {
       await processAndSaveMorphemes(formattedWord, morphemeString.trim());
     }
 
     return entry;
   } catch (error) {
-    console.error("Database Error inserting weekly word:", error);
+    console.error("Database Error adding word to worksheet:", error);
     throw error;
   }
 }
@@ -102,118 +168,80 @@ export async function getWordsForMorpheme(morphemeId: number) {
 }
 
 /**
- * Parses user input like "pre[dict]ion" and saves the morphemes.
- * Any morpheme prior to a - is a prefix, any after a - is a suffix, anything inside of [] are roots
- * Oh wait, the prompt says "any morpheme prior to a - is a prefix, any after a - is a suffix"
- * E.g. "pre-[dict]-ion" or "prefix[root]suffix" -> wait.
- * "prefix[root]suffix input box don't save to the database... any morpheme prior to a - is a prefix, any after a - is a suffix, anything inside of [] are roots"
- * Let's interpret: "pre-[dict]-ion"
+ * Parses user input like "pre[dict]ion" or "pre-[dict]-ion" and saves the morphemes.
+ * Only links existing morphemes from the database.
  */
 async function processAndSaveMorphemes(wordText: string, morphemeString: string) {
-  let remaining = morphemeString;
-
-  // Extract root first (inside [])
   let root = '';
-  const rootMatch = remaining.match(/\[(.*?)\]/);
+  const rootMatch = morphemeString.match(/\[(.*?)\]/);
   if (rootMatch) {
-    root = rootMatch[1];
-    // remove the root and its brackets
-    remaining = remaining.replace(rootMatch[0], '');
+    root = rootMatch[1].trim();
   }
-
-  // Find prefix (ends with -) and suffix (starts with -)
-  // But wait, the prompt literally says:
-  // "any morpheme prior to a - is a prefix, any after a - is a suffix"
-  // So if user types "pre-[dict]-ion"
-  // remaining would be "pre--ion"
-
-  // Actually, a simpler approach:
-  // 1. Root is inside [ ]
-  // 2. Prefix is before -
-  // 3. Suffix is after -
-  // But if the user types "un-[able]" or "[dict]-ion"
-
-  // Let's do a generic parse. The prompt says: "prefix[root]suffix" as the example!
-  // Then says "any morpheme prior to a - is a prefix, any after a - is a suffix, anything inside of [] are roots"
-  // If the user inputs "pre-[dict]-ion", the prefix is "pre", root is "dict", suffix is "ion".
 
   let prefix = '';
-  let suffix = '';
-
-  // Find prefix: anything before a '-'
-  // Wait, if it's "pre-[dict]-ion", prefix is "pre".
   const prefixMatch = morphemeString.match(/^(.*?)-/);
   if (prefixMatch) {
-     prefix = prefixMatch[1].trim();
+    prefix = prefixMatch[1].trim();
   }
 
-  // Find suffix: anything after a '-' (the last '-' if there are multiple)
-  const suffixMatch = morphemeString.match(/-(.*?)$/);
+  let suffix = '';
+  const suffixMatch = morphemeString.match(/-([^-]*?)$/);
   if (suffixMatch) {
-     suffix = suffixMatch[1].trim();
+    suffix = suffixMatch[1].trim();
   }
 
-  // Handle cases without hyphens but with brackets like "pre[dict]ion"
-  // The prompt says "any morpheme prior to a - is a prefix...". This implies the user MUST use hyphens.
-  // BUT the example placeholder says "prefix[root]suffix" which lacks hyphens!
-  // Let's support both. If they use "prefix[root]suffix":
+  // Support "prefix[root]suffix" format
   if (!prefix && !suffix && rootMatch) {
-     const splitByRoot = morphemeString.split(rootMatch[0]);
-     if (splitByRoot.length === 2) {
-       prefix = splitByRoot[0].trim();
-       suffix = splitByRoot[1].trim();
-       // remove any trailing/leading hyphens just in case
-       prefix = prefix.replace(/-$/, '');
-       suffix = suffix.replace(/^-/, '');
-     }
-  } else {
-     // Clean up
-     prefix = prefix.replace(/\[.*\]/, '').trim();
-     suffix = suffix.replace(/\[.*\]/, '').trim();
+    const parts = morphemeString.split(/\[.*?\]/);
+    if (parts.length >= 1) prefix = parts[0].trim();
+    if (parts.length >= 2) suffix = parts[1].trim();
   }
 
-  // Try to find the exact morpheme or create a default one
-  if (prefix) await linkMorpheme(wordText, `${prefix}-`, 'prefix');
-  if (root) await linkMorpheme(wordText, root, 'root');
-  if (suffix) await linkMorpheme(wordText, `-${suffix}`, 'suffix');
-}
+  // Clean up
+  prefix = prefix.replace(/[\[\]]/g, '').replace(/-$/, '').trim();
+  suffix = suffix.replace(/[\[\]]/g, '').replace(/^-/, '').trim();
+  root = root.replace(/-/, '').trim();
 
-async function linkMorpheme(wordText: string, text: string, type: 'prefix' | 'root' | 'suffix') {
-  const formattedText = text.trim().toLowerCase();
+  const word = await prisma.word.findUnique({ where: { text: wordText } });
+  if (!word) return;
 
-  // Try to find an existing morpheme with this text
-  let morpheme = await prisma.morpheme.findFirst({
-    where: { text: formattedText }
+  // Clear existing morpheme links for this word before re-linking
+  await prisma.wordMorpheme.deleteMany({
+    where: { wordId: word.id }
   });
 
-  if (!morpheme) {
-    // We don't have the meaning, but unique constraint requires meaning.
-    // Fallback meaning is required.
-    morpheme = await prisma.morpheme.create({
-      data: {
-        text: formattedText,
-        meaning: 'User defined meaning',
-        type: type
-      }
-    });
-  }
+  if (prefix) await linkMorpheme(word.id, `${prefix}-`, 'prefix');
+  if (root) await linkMorpheme(word.id, root, 'root');
+  if (suffix) await linkMorpheme(word.id, `-${suffix}`, 'suffix');
+}
 
-  // Link word and morpheme
-  const word = await prisma.word.findUnique({ where: { text: wordText } });
-  if (word && morpheme) {
-      await prisma.wordMorpheme.upsert({
-        where: {
-          wordId_morphemeId: {
-            wordId: word.id,
-            morphemeId: morpheme.id
-          }
-        },
-        update: {},
-        create: {
-          wordId: word.id,
+/**
+ * Links an existing morpheme to a word. Does NOT create new morphemes.
+ */
+async function linkMorpheme(wordId: number, text: string, type: string) {
+  const formattedText = text.toLowerCase();
+
+  const morpheme = await prisma.morpheme.findFirst({
+    where: {
+      text: formattedText,
+      type: type
+    }
+  });
+
+  if (morpheme) {
+    await prisma.wordMorpheme.upsert({
+      where: {
+        wordId_morphemeId: {
+          wordId: wordId,
           morphemeId: morpheme.id
         }
-      });
+      },
+      update: {},
+      create: {
+        wordId: wordId,
+        morphemeId: morpheme.id
+      }
+    });
   }
 }
 
@@ -245,8 +273,8 @@ export async function searchWords(query: string) {
 export async function getProgress() {
   try {
     const totalWords = await prisma.word.count();
-    const totalLearned = await prisma.weeklyEntry.count(); // Approximate 'learned' by entries
-    const weeksTracked = await prisma.weeklyTable.count();
+    const totalLearned = await prisma.worksheetEntry.count();
+    const sheetsCreated = await prisma.worksheet.count();
 
     // Grouping morphemes by type that users have ACTUALLY linked to words
     const userMorphemes = await prisma.wordMorpheme.findMany({
@@ -293,7 +321,7 @@ export async function getProgress() {
     return {
         totalWords,
         totalLearned,
-        weeksTracked,
+        weeksTracked: sheetsCreated,
         totalMorphemes: uniqueUserMorphemes.size,
         totalPrefixes,
         totalSuffixes,
@@ -340,86 +368,6 @@ export async function getAllMorphemes() {
     console.error("Database Error fetching morphemes:", error);
     throw error;
   }
-}
-
-interface WeeklyEntryWithWord {
-    id: number;
-    word: {
-        text: string;
-    };
-    dayOfWeek: number;
-    position: number | null;
-}
-
-/**
- * Fetches all words for a given week and year.
- * @param date - The date to get the week info for.
- */
-export async function getWordsForWeek(date: string) {
-  const { weekNumber, year } = getWeekInfoFromDate(new Date(date));
-
-  // Failsafe: Prevent invalid data from hitting Prisma
-  if (isNaN(weekNumber) || isNaN(year)) {
-    throw new Error("Invalid weekNumber or year calculated.");
-  }
-
-  try {
-    const entries = await prisma.weeklyEntry.findMany({
-      where: {
-        weeklyTable: {
-          weekNumber: weekNumber,
-          year: year,
-        },
-      },
-      include: {
-        word: {
-          include: {
-            morphemes: {
-              include: {
-                morpheme: true
-              }
-            }
-          }
-        },
-      },
-      orderBy: {
-        dayOfWeek: 'asc',
-      }
-    });
-    return entries;
-  } catch (error) {
-    console.error("Database Error fetching weekly words:", error);
-    throw error;
-  }
-}
-/**
- * Deletes all words for a given week and year.
- * @param date - The date to get the week info for.
- */
-export async function deleteWordsForWeek(date: string) {
-    const { weekNumber, year } = getWeekInfoFromDate(new Date(date));
-
-    try {
-        const weeklyTable = await prisma.weeklyTable.findUnique({
-            where: {
-                weekNumber_year: {
-                    weekNumber,
-                    year,
-                },
-            },
-        });
-
-        if (weeklyTable) {
-            await prisma.weeklyEntry.deleteMany({
-                where: {
-                    weeklyTableId: weeklyTable.id,
-                },
-            });
-        }
-    } catch (error) {
-        console.error("Database Error deleting weekly words:", error);
-        throw error;
-    }
 }
 
 /**

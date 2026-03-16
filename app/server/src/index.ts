@@ -1,64 +1,94 @@
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
-import { addWordToWeek, getWordsForWeek, deleteWordsForWeek, getAllMorphemes, searchWords, getProgress, getAccount } from './database'; // Import the logic
+import {
+  getWorksheets,
+  createWorksheet,
+  updateWorksheetName,
+  deleteWorksheet,
+  getWordsForWorksheet,
+  addWordToWorksheet,
+  getAllMorphemes,
+  searchWords,
+  getProgress,
+  getAccount,
+  getWordsForMorpheme
+} from './database';
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-// The POST route to handle user input
-app.post('/api/words', async (req, res) => {
+// --- Worksheet Management Endpoints ---
+
+app.get('/api/worksheets', async (req, res) => {
   try {
-    const { wordText, date, dayOfWeek, position, morphemeString } = req.body;
-
-    // Call the isolated database logic
-    const newEntry = await addWordToWeek(wordText, date, dayOfWeek, position, morphemeString);
-
-    // Send the successful response back to the frontend
-    res.status(201).json(newEntry);
-
+    const worksheets = await getWorksheets();
+    res.status(200).json(worksheets);
   } catch (error) {
-    console.error("Failed to add word:", error);
-    res.status(500).json({ error: "Internal server error while saving the word." });
+    console.error("Failed to fetch worksheets:", error);
+    res.status(500).json({ error: "Internal server error while fetching worksheets." });
   }
 });
 
-// The GET route to fetch words for a week
-app.get('/api/words', async (req, res) => {
+app.post('/api/worksheets', async (req, res) => {
   try {
-    const dateParam = req.query.date as string;
+    const { name } = req.body;
+    const newWorksheet = await createWorksheet(name);
+    res.status(201).json(newWorksheet);
+  } catch (error) {
+    console.error("Failed to create worksheet:", error);
+    res.status(500).json({ error: "Internal server error while creating worksheet." });
+  }
+});
 
-    // 1. Check if the parameter exists
-    if (!dateParam) {
-      return res.status(400).json({ error: "Missing 'date' query parameter." });
-    }
+app.patch('/api/worksheets/:id', async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    const { name } = req.body;
+    if (isNaN(id)) return res.status(400).json({ error: "Invalid worksheet ID." });
+    const updatedWorksheet = await updateWorksheetName(id, name);
+    res.status(200).json(updatedWorksheet);
+  } catch (error) {
+    console.error("Failed to update worksheet:", error);
+    res.status(500).json({ error: "Internal server error while updating worksheet." });
+  }
+});
 
-    // 2. Check if the parameter is a valid date
-    const parsedDate = new Date(dateParam);
-    if (isNaN(parsedDate.getTime())) {
-      return res.status(400).json({ error: "Invalid date format provided." });
-    }
+app.delete('/api/worksheets/:id', async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) return res.status(400).json({ error: "Invalid worksheet ID." });
+    await deleteWorksheet(id);
+    res.status(204).send();
+  } catch (error) {
+    console.error("Failed to delete worksheet:", error);
+    res.status(500).json({ error: "Internal server error while deleting worksheet." });
+  }
+});
 
-    // 3. Only call the database if validation passes
-    const entries = await getWordsForWeek(dateParam);
+// --- Word & Entry Endpoints ---
+
+app.get('/api/worksheets/:id/words', async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) return res.status(400).json({ error: "Invalid worksheet ID." });
+
+    const entries = await getWordsForWorksheet(id);
 
     // Reconstruct morphemeString for frontend
     const mappedEntries = entries.map(entry => {
       let morphemeString = '';
       if (entry.word && entry.word.morphemes && entry.word.morphemes.length > 0) {
-          // Sort morphemes by order if possible, though they might not be stored with explicit order
-          // So we construct a simple one based on types: Prefix, Root, Suffix
-          const prefixes = entry.word.morphemes.filter(wm => wm.morpheme.type === 'PREFIX').map(wm => wm.morpheme.text);
-          const roots = entry.word.morphemes.filter(wm => wm.morpheme.type === 'ROOT').map(wm => `[${wm.morpheme.text}]`);
-          const suffixes = entry.word.morphemes.filter(wm => wm.morpheme.type === 'SUFFIX').map(wm => wm.morpheme.text);
+          const prefixes = entry.word.morphemes.filter(wm => wm.morpheme.type === 'prefix').map(wm => wm.morpheme.text);
+          const roots = entry.word.morphemes.filter(wm => wm.morpheme.type === 'root').map(wm => `[${wm.morpheme.text}]`);
+          const suffixes = entry.word.morphemes.filter(wm => wm.morpheme.type === 'suffix').map(wm => wm.morpheme.text);
 
-          // Just a simple reconstruction: pre-[dict]-ion
           let str = "";
-          for (let p of prefixes) { str += p + "-"; }
+          for (let p of prefixes) { str += p; } // prefix text usually ends with -
           for (let r of roots) { str += r; }
           for (let s of suffixes) {
-             if (!str.endsWith("-") && str !== "") str += "-";
+             if (!str.endsWith("-") && str !== "" && !s.startsWith("-")) str += "-";
              str += s;
           }
           morphemeString = str;
@@ -71,35 +101,29 @@ app.get('/api/words', async (req, res) => {
     });
 
     res.status(200).json(mappedEntries);
-
   } catch (error) {
     console.error("Failed to fetch words:", error);
     res.status(500).json({ error: "Internal server error." });
   }
 });
 
-// The DELETE route to clear words for a week
-app.delete('/api/words', async (req, res) => {
-    try {
-        const dateParam = req.query.date as string;
+app.post('/api/worksheets/:id/words', async (req, res) => {
+  try {
+    const worksheetId = parseInt(req.params.id);
+    const { wordText, columnIndex, position, morphemeString } = req.body;
 
-        if (!dateParam) {
-            return res.status(400).json({ error: "Missing 'date' query parameter." });
-        }
+    if (isNaN(worksheetId)) return res.status(400).json({ error: "Invalid worksheet ID." });
 
-        const parsedDate = new Date(dateParam);
-        if (isNaN(parsedDate.getTime())) {
-            return res.status(400).json({ error: "Invalid date format provided." });
-        }
-        await deleteWordsForWeek(dateParam);
-        res.status(204).send();
-    } catch (error) {
-        console.error("Failed to delete words:", error);
-        res.status(500).json({ error: "Internal server error while deleting words." });
-    }
+    const newEntry = await addWordToWorksheet(worksheetId, wordText, columnIndex, position, morphemeString);
+    res.status(201).json(newEntry);
+  } catch (error) {
+    console.error("Failed to add word:", error);
+    res.status(500).json({ error: "Internal server error while saving the word." });
+  }
 });
 
-// The GET route to search words
+// --- Other Endpoints ---
+
 app.get('/api/words/search', async (req, res) => {
     try {
         const query = req.query.q as string;
@@ -114,7 +138,6 @@ app.get('/api/words/search', async (req, res) => {
     }
 });
 
-// The GET route to fetch progress
 app.get('/api/progress', async (req, res) => {
     try {
         const progress = await getProgress();
@@ -125,7 +148,6 @@ app.get('/api/progress', async (req, res) => {
     }
 });
 
-// The GET route to fetch account
 app.get('/api/account', async (req, res) => {
     try {
         const account = await getAccount();
@@ -140,7 +162,6 @@ app.get('/api/account', async (req, res) => {
     }
 });
 
-// The GET route to fetch all morphemes
 app.get('/api/morphemes', async (req, res) => {
     try {
         const morphemes = await getAllMorphemes();
@@ -151,9 +172,6 @@ app.get('/api/morphemes', async (req, res) => {
     }
 });
 
-import { getWordsForMorpheme } from './database';
-
-// The GET route to fetch words for a specific morpheme
 app.get('/api/morphemes/:id/words', async (req, res) => {
     try {
         const morphemeId = parseInt(req.params.id);
@@ -167,6 +185,10 @@ app.get('/api/morphemes/:id/words', async (req, res) => {
         res.status(500).json({ error: "Internal server error while fetching words for morpheme." });
     }
 });
+
+// --- Old routes (for backward compatibility or to be removed later) ---
+// Note: Keeping them might be good if other parts of the app still use them,
+// but the plan says to update/replace.
 
 const PORT = 3000;
 app.listen(PORT, () => {
