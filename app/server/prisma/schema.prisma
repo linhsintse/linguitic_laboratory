@@ -35,6 +35,7 @@ model Morpheme {
   id        Int            @id @default(autoincrement())
   type      String // 'prefix', 'root', 'suffix'
   text      String
+  displaytext String
   meaning   String
   origin    String? // e.g., 'OE', 'L', 'G', 'F'
   frequency Int? // 1-100 score

@@ -183,7 +183,6 @@ export async function createAndPopulateWorksheet() {
         worksheetName = worksheets[0].name || '';
     }
 
-    worksheetGrid.innerHTML = '';
     updateWorksheetDisplay();
 
     if (currentWorksheetId !== null) {
@@ -206,6 +205,7 @@ export async function createAndPopulateWorksheet() {
         });
     }
 
+    worksheetGrid.innerHTML = '';
 
     for (let i = 0; i < 7; i++) {
         const dayColumn = document.createElement('section');
@@ -315,6 +315,7 @@ async function saveWordData(columnIndex: number, position: number, wordText: str
 function addEventListeners() {
     const newSheetButton = document.getElementById('new-sheet-button') as HTMLButtonElement;
     const prevSheetButton = document.getElementById('prev-sheet-button') as HTMLButtonElement;
+    const nextSheetButton = document.getElementById('next-sheet-button') as HTMLButtonElement;
     const sheetSelect = document.getElementById('sheet-select') as HTMLSelectElement;
     const sheetNameInput = document.getElementById('sheet-name-input') as HTMLInputElement;
 
@@ -328,11 +329,28 @@ function addEventListeners() {
         prevSheetButton.addEventListener('click', () => {
             if (currentWorksheetId !== null && worksheets.length > 1) {
                 const currentIndex = worksheets.findIndex(ws => ws.id === currentWorksheetId);
-                const nextIndex = (currentIndex + 1) % worksheets.length;
-                currentWorksheetId = worksheets[nextIndex].id;
-                worksheetName = worksheets[nextIndex].name || '';
-                wordsByColumn = {};
-                createAndPopulateWorksheet();
+                if (currentIndex > 0) {
+                    const prevIndex = currentIndex - 1;
+                    currentWorksheetId = worksheets[prevIndex].id;
+                    worksheetName = worksheets[prevIndex].name || '';
+                    wordsByColumn = {};
+                    createAndPopulateWorksheet();
+                }
+            }
+        });
+    }
+
+    if(nextSheetButton) {
+        nextSheetButton.addEventListener('click', () => {
+            if (currentWorksheetId !== null && worksheets.length > 1) {
+                const currentIndex = worksheets.findIndex(ws => ws.id === currentWorksheetId);
+                if (currentIndex < worksheets.length - 1) {
+                    const nextIndex = currentIndex + 1;
+                    currentWorksheetId = worksheets[nextIndex].id;
+                    worksheetName = worksheets[nextIndex].name || '';
+                    wordsByColumn = {};
+                    createAndPopulateWorksheet();
+                }
             }
         });
     }
@@ -366,11 +384,12 @@ export function renderWorksheet(element: HTMLElement) {
         <div class="flex justify-between items-center max-w-[95%] mx-auto mb-4 bg-white p-3 rounded-lg shadow-sm border border-gray-100">
              <div class="flex items-center space-x-4">
                 <input id="sheet-name-input" class="text-xl font-bold text-gray-800 border-b-2 border-transparent hover:border-gray-200 focus:border-academic-blue focus:outline-none bg-transparent py-1" placeholder="Sheet Name..." />
-                <select id="sheet-select" class="text-sm border-gray-300 rounded-md focus:ring-academic-blue focus:border-academic-blue bg-gray-50 p-1">
-                </select>
              </div>
-             <div class="flex space-x-2">
+             <div class="flex items-center space-x-2">
+                <select id="sheet-select" class="text-sm border-gray-300 rounded-md focus:ring-academic-blue focus:border-academic-blue bg-gray-50 py-1 pl-2 pr-8 mr-2">
+                </select>
                 <button id="prev-sheet-button" class="px-4 py-2 text-xs font-bold uppercase tracking-wider border border-gray-300 rounded-md hover:bg-gray-100 text-gray-600 transition-colors">Previous Sheet</button>
+                <button id="next-sheet-button" class="px-4 py-2 text-xs font-bold uppercase tracking-wider border border-gray-300 rounded-md hover:bg-gray-100 text-gray-600 transition-colors">Next Sheet</button>
                 <button id="new-sheet-button" class="px-4 py-2 text-xs font-bold uppercase tracking-wider bg-black text-white rounded-md hover:bg-gray-800 transition-colors">New Sheet</button>
              </div>
         </div>
