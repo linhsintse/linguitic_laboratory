@@ -5,6 +5,14 @@ interface Worksheet {
   createdAt: string;
 }
 
+interface Morpheme {
+    id: number;
+    text: string;
+    displaytext: string;
+    type: string;
+    meaning: string;
+}
+
 interface WorksheetEntry {
   id: number;
   wordId: number;
@@ -15,6 +23,7 @@ interface WorksheetEntry {
     id: number;
     text: string;
   };
+  morphemes?: Morpheme[];
   morphemeString?: string;
 }
 
@@ -26,7 +35,7 @@ const COLUMN_HEADERS = ['COL 1', 'COL 2', 'COL 3', 'COL 4', 'COL 5', 'COL 6', 'C
 let worksheets: Worksheet[] = [];
 let currentWorksheetId: number | null = null;
 let wordsByColumn: { [key: number]: string[] } = {};
-let morphemesByColumn: { [key: number]: string[] } = {};
+let morphemesByColumn: { [key: number]: Morpheme[][] } = {};
 let worksheetName: string = '';
 
 // --- Functions ---
@@ -126,6 +135,22 @@ function enterEditMode(slot: HTMLElement) {
             input.after(tagContainer);
         }
     }
+
+    // Hide the non-edit tags
+    const nonEditTagsContainer = slot.querySelector('.morpheme-tags-container');
+    if (nonEditTagsContainer) {
+        (nonEditTagsContainer as HTMLElement).style.display = 'none';
+    }
+
+    // Pre-populate global state if we already have morphemes for this slot
+    const colIndex = parseInt(slot.dataset.colIndex!);
+    const pos = parseInt(slot.dataset.position!);
+    if (morphemesByColumn[colIndex] && morphemesByColumn[colIndex][pos]) {
+        (window as any).selectedMorphemes = [...morphemesByColumn[colIndex][pos]];
+    } else {
+        (window as any).selectedMorphemes = [];
+    }
+
     input.focus();
     if ((window as any).initAutoParser) {
         (window as any).initAutoParser();
@@ -141,8 +166,26 @@ function enterEditMode(slot: HTMLElement) {
         const columnIndex = parseInt((slot as HTMLDivElement).dataset.colIndex!);
         const position = parseInt((slot as HTMLDivElement).dataset.position!);
 
-        const morphemeInput = slot.querySelector('.morpheme-guide') as HTMLInputElement;
-        const newMorphemeString = morphemeInput ? morphemeInput.value.trim() : '';
+        // Get tags from the global selectedMorphemes if the initAutoParser script ran.
+        // Wait, the main.ts currently handles updating it. Let's just pass an empty string
+        // or a reconstructed string.
+        // We will fetch selectedMorphemes from window if needed.
+        let newMorphemeString = '';
+        if ((window as any).selectedMorphemes) {
+            const selected = (window as any).selectedMorphemes as Morpheme[];
+            const prefixes = selected.filter(m => m.type === 'prefix').map(m => m.text);
+            const roots = selected.filter(m => m.type === 'root').map(m => `[${m.text}]`);
+            const suffixes = selected.filter(m => m.type === 'suffix').map(m => m.text);
+
+            let str = "";
+            for (let p of prefixes) { str += p; }
+            for (let r of roots) { str += r; }
+            for (let s of suffixes) {
+                if (!str.endsWith("-") && str !== "" && !s.startsWith("-")) str += "-";
+                str += s;
+            }
+            newMorphemeString = str;
+        }
 
         if (!wordsByColumn[columnIndex]) {
             wordsByColumn[columnIndex] = [];
@@ -152,7 +195,7 @@ function enterEditMode(slot: HTMLElement) {
         if (!morphemesByColumn[columnIndex]) {
             morphemesByColumn[columnIndex] = [];
         }
-        morphemesByColumn[columnIndex][position] = newMorphemeString;
+        morphemesByColumn[columnIndex][position] = (window as any).selectedMorphemes || [];
 
         await saveWordData(columnIndex, position, newWord, newMorphemeString);
         await createAndPopulateWorksheet();
@@ -163,6 +206,21 @@ function enterEditMode(slot: HTMLElement) {
     input.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') {
             save();
+        }
+    });
+
+    // If the user clicks outside the slot, we might want to save.
+    // But since the add tag button is also in the slot, we can just save when blurring the input
+    // ONLY if the related target is not inside the slot.
+    input.addEventListener('blur', (e) => {
+        const relatedTarget = e.relatedTarget as HTMLElement;
+        if (!slot.contains(relatedTarget)) {
+            // Wait a small bit in case the blur was to the tag delete button or add button
+            setTimeout(() => {
+                if (!slot.contains(document.activeElement)) {
+                    save();
+                }
+            }, 100);
         }
     });
 }
@@ -198,8 +256,8 @@ export async function createAndPopulateWorksheet() {
         entries.forEach(entry => {
             if (wordsByColumn[entry.columnIndex]) {
                 wordsByColumn[entry.columnIndex][entry.position] = entry.word.text;
-                if (entry.morphemeString) {
-                   morphemesByColumn[entry.columnIndex][entry.position] = entry.morphemeString;
+                if (entry.morphemes) {
+                   morphemesByColumn[entry.columnIndex][entry.position] = entry.morphemes;
                 }
             }
         });
@@ -218,7 +276,12 @@ export async function createAndPopulateWorksheet() {
             <div class="word-slots-container">
                 ${Array(7).fill(0).map((_, j) => {
                     const word = wordsByColumn[i]?.[j] || '';
-                    const morphemeStr = morphemesByColumn[i]?.[j] || '';
+                    const morphemes = morphemesByColumn[i]?.[j] || [];
+
+                    const morphemeTagsHTML = morphemes.map(m =>
+                        `<span class="inline-flex items-center bg-blue-100 text-blue-800 text-[10px] font-medium mr-1 px-1.5 py-0.5 rounded-full">${m.displaytext}</span>`
+                    ).join('');
+
                     return `
                         <div class="word-slot p-2 h-20 flex flex-col justify-center border-b border-gray-100" data-col-index="${i}" data-position="${j}">
                             <div class="flex items-start space-x-2">
@@ -232,7 +295,10 @@ export async function createAndPopulateWorksheet() {
                                     ` : `
                                         <span class="font-serif italic text-lg text-text-muted block leading-none mb-1 cursor-pointer">word...</span>
                                     `}
-                                    <input class="morpheme-guide bg-transparent border-none py-1 mt-1 w-full text-xs" placeholder="prefix[root]suffix" value="${morphemeStr}" />
+                                    <div class="morpheme-tags-container flex flex-wrap gap-1 mt-1">
+                                        ${morphemeTagsHTML}
+                                        ${word ? `<button class="add-morpheme-btn inline-flex items-center justify-center w-4 h-4 rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200 focus:outline-none" title="Add Morpheme">+</button>` : ''}
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -242,24 +308,6 @@ export async function createAndPopulateWorksheet() {
         `;
         worksheetGrid.appendChild(dayColumn);
     }
-
-     // Prevent clicks on morpheme inputs from bubbling up to the slot and triggering edit mode
-     worksheetGrid.querySelectorAll('.morpheme-guide').forEach(input => {
-        input.addEventListener('click', (e) => {
-            e.stopPropagation();
-        });
-        input.addEventListener('blur', async (e) => {
-            const target = e.target as HTMLInputElement;
-            const slot = target.closest('.word-slot') as HTMLElement;
-            const colIndex = parseInt(slot.dataset.colIndex!);
-            const position = parseInt(slot.dataset.position!);
-            const word = wordsByColumn[colIndex]?.[position] || '';
-            if (word) {
-                await saveWordData(colIndex, position, word, target.value);
-                await createAndPopulateWorksheet();
-            }
-        });
-    });
 
      // Add event listeners for editing
      worksheetGrid.querySelectorAll('.word-slot').forEach(slot => {
@@ -277,6 +325,16 @@ export async function createAndPopulateWorksheet() {
                 enterEditMode(slot as HTMLElement);
             }
         });
+
+        // Handle Add Morpheme Button click
+        const addMorphemeBtn = slot.querySelector('.add-morpheme-btn');
+        if (addMorphemeBtn) {
+            addMorphemeBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                enterEditMode(slot as HTMLElement);
+                // Also trigger focusing the input and maybe show a prompt or just let them edit
+            });
+        }
     });
 }
 
