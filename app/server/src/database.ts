@@ -29,7 +29,7 @@ export async function autoParseWord(inputWord: string) {
     const allMorphemes = await prisma.morpheme.findMany();
 
     const matchedMorphemes = allMorphemes.filter(m => {
-      const cleanText = m.text.replace(/-/g, '').toLowerCase();
+      const cleanText = m.text.toLowerCase();
       if (m.type === 'prefix') {
         return normalizedWord.startsWith(cleanText);
       } else if (m.type === 'suffix') {
@@ -228,9 +228,9 @@ async function processAndSaveMorphemes(wordText: string, morphemeString: string)
   }
 
   // Clean up
-  prefix = prefix.replace(/[\[\]]/g, '').replace(/-$/, '').trim();
-  suffix = suffix.replace(/[\[\]]/g, '').replace(/^-/, '').trim();
-  root = root.replace(/-/, '').trim();
+  prefix = prefix.replace(/[\[\]\-]/g, '').trim();
+  suffix = suffix.replace(/[\[\]\-]/g, '').trim();
+  root = root.replace(/[\[\]\-]/g, '').trim();
 
   const word = await prisma.word.findUnique({ where: { text: wordText } });
   if (!word) return;
@@ -240,9 +240,9 @@ async function processAndSaveMorphemes(wordText: string, morphemeString: string)
     where: { wordId: word.id }
   });
 
-  if (prefix) await linkMorpheme(word.id, `${prefix}-`, 'prefix');
+  if (prefix) await linkMorpheme(word.id, prefix, 'prefix');
   if (root) await linkMorpheme(word.id, root, 'root');
-  if (suffix) await linkMorpheme(word.id, `-${suffix}`, 'suffix');
+  if (suffix) await linkMorpheme(word.id, suffix, 'suffix');
 }
 
 /**
@@ -432,6 +432,7 @@ export async function addMorphemeToWord(
             },
             create: { 
               text: formattedMorpheme,
+              displaytext: formattedMorpheme,
               meaning: formattedMeaning,
               type: morphemeType
             },
