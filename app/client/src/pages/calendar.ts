@@ -1,59 +1,101 @@
 // --- Type Definitions ---
-interface VocabularyWord {
+interface Worksheet {
   id: number;
+  name: string | null;
+  createdAt: string;
+}
+
+interface WorksheetEntry {
+  id: number;
+  wordId: number;
+  worksheetId: number;
+  columnIndex: number;
+  position: number;
   word: {
+    id: number;
     text: string;
   };
-  dayOfWeek: number;
-  position: number;
   morphemeString?: string;
 }
 
 // The base URL for the backend API.
 const API_URL = 'http://localhost:3000/api';
-const DAYS = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
-const DAY_MAP: { [key: string]: number } = {
-    'MON': 0,
-    'TUE': 1,
-    'WED': 2,
-    'THU': 3,
-    'FRI': 4,
-    'SAT': 5,
-    'SUN': 6,
-};
+const COLUMN_HEADERS = ['COL 1', 'COL 2', 'COL 3', 'COL 4', 'COL 5', 'COL 6', 'COL 7'];
 
 // --- State ---
-let weekOffset = 0;
-let wordsByDay: { [key: string]: string[] } = {};
-let morphemesByDay: { [key: string]: string[] } = {};
-let focusWordsByDay: { [key: string]: string } = {};
+let worksheets: Worksheet[] = [];
+let currentWorksheetId: number | null = null;
+let wordsByColumn: { [key: number]: string[] } = {};
+let morphemesByColumn: { [key: number]: string[] } = {};
+let worksheetName: string = '';
 
 // --- Functions ---
 
-/**
- * Get the date for Monday of a given week offset (ISO week).
- * @param offset - The week offset from the current week.
- */
-function getWeekMonday(offset: number): Date {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0); // Normalize to midnight to avoid time-of-day inconsistencies
-    const day = today.getDay();
-    const diff = (day === 0 ? -6 : 1) - day; // Adjust for Sunday (0) being end of ISO week
-    const monday = new Date(today.setDate(today.getDate() + diff));
-    monday.setDate(monday.getDate() + offset * 7);
-    return monday;
+async function fetchWorksheets() {
+    try {
+        const response = await fetch(`${API_URL}/worksheets`);
+        if (!response.ok) throw new Error('Failed to fetch worksheets');
+        worksheets = await response.json();
+        if (worksheets.length > 0 && currentWorksheetId === null) {
+            currentWorksheetId = worksheets[0].id;
+            worksheetName = worksheets[0].name || '';
+        }
+    } catch (error) {
+        console.error('Error fetching worksheets:', error);
+    }
 }
 
-/**
- * Updates the week display.
- */
-function updateWeekDisplay() {
-    const weekDisplay = document.getElementById('week-display') as HTMLSpanElement;
-    if (!weekDisplay) return;
-    const monday = getWeekMonday(weekOffset);
-    const weekNumber = Math.ceil(monday.getDate() / 7);
-    const month = monday.toLocaleString('default', { month: 'long' });
-    weekDisplay.textContent = `Week ${weekNumber} — ${month}`;
+async function createNewSheet() {
+    try {
+        const response = await fetch(`${API_URL}/worksheets`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: 'New Worksheet' })
+        });
+        if (!response.ok) throw new Error('Failed to create worksheet');
+        const newSheet = await response.json();
+        currentWorksheetId = newSheet.id;
+        worksheetName = newSheet.name || '';
+        wordsByColumn = {};
+        morphemesByColumn = {};
+        await fetchWorksheets();
+        await createAndPopulateCalendar();
+    } catch (error) {
+        console.error('Error creating worksheet:', error);
+    }
+}
+
+async function renameCurrentSheet(name: string) {
+    if (currentWorksheetId === null) return;
+    try {
+        const response = await fetch(`${API_URL}/worksheets/${currentWorksheetId}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name })
+        });
+        if (!response.ok) throw new Error('Failed to rename worksheet');
+        worksheetName = name;
+        await fetchWorksheets();
+        updateWorksheetDisplay();
+    } catch (error) {
+        console.error('Error renaming worksheet:', error);
+    }
+}
+
+function updateWorksheetDisplay() {
+    const sheetNameInput = document.getElementById('sheet-name-input') as HTMLInputElement;
+    if (sheetNameInput) {
+        sheetNameInput.value = worksheetName;
+    }
+
+    const sheetSelect = document.getElementById('sheet-select') as HTMLSelectElement;
+    if (sheetSelect) {
+        sheetSelect.innerHTML = worksheets.map(ws => `
+            <option value="${ws.id}" ${ws.id === currentWorksheetId ? 'selected' : ''}>
+                ${ws.name || 'Unnamed'} (${new Date(ws.createdAt).toLocaleDateString()})
+            </option>
+        `).join('');
+    }
 }
 
 function enterEditMode(slot: HTMLElement) {
@@ -86,32 +128,31 @@ function enterEditMode(slot: HTMLElement) {
         isSaving = true;
 
         const newWord = input.value.trim();
-        const day = (slot as HTMLDivElement).dataset.day!;
-        const index = parseInt((slot as HTMLDivElement).dataset.index!);
+        const columnIndex = parseInt((slot as HTMLDivElement).dataset.colIndex!);
+        const position = parseInt((slot as HTMLDivElement).dataset.position!);
         
-        // Also grab the morpheme value
         const morphemeInput = slot.querySelector('.morpheme-guide') as HTMLInputElement;
         const newMorphemeString = morphemeInput ? morphemeInput.value.trim() : '';
 
-        if (!wordsByDay[day]) {
-            wordsByDay[day] = [];
+        if (!wordsByColumn[columnIndex]) {
+            wordsByColumn[columnIndex] = [];
         }
-        wordsByDay[day][index] = newWord;
+        wordsByColumn[columnIndex][position] = newWord;
         
-        if (!morphemesByDay[day]) {
-            morphemesByDay[day] = [];
+        if (!morphemesByColumn[columnIndex]) {
+            morphemesByColumn[columnIndex] = [];
         }
-        morphemesByDay[day][index] = newMorphemeString;
+        morphemesByColumn[columnIndex][position] = newMorphemeString;
 
-        createAndPopulateCalendar();
-        await saveCalendarData();
+        await saveWordData(columnIndex, position, newWord, newMorphemeString);
+        await createAndPopulateCalendar();
     };
 
     input.addEventListener('blur', save);
     input.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') {
             save();
-            input.blur(); // Trigger blur to close, but guard handles duplicate save
+            input.blur();
         }
     });
 }
@@ -119,64 +160,65 @@ function enterEditMode(slot: HTMLElement) {
 /**
  * Generates the calendar grid and populates it with words.
  */
-async function createAndPopulateCalendar() {
+export async function createAndPopulateCalendar() {
     const calendarGrid = document.getElementById('calendar-grid') as HTMLDivElement;
     if (!calendarGrid) return;
 
-    calendarGrid.innerHTML = ''; // Clear existing calendar
-    updateWeekDisplay();
+    if (worksheets.length === 0) {
+        await fetchWorksheets();
+    }
 
-    if (Object.keys(wordsByDay).length === 0) {
-        const words = await fetchWords(weekOffset);
-        wordsByDay = {};
-        morphemesByDay = {};
-        focusWordsByDay = {};
+    if (currentWorksheetId === null && worksheets.length > 0) {
+        currentWorksheetId = worksheets[0].id;
+        worksheetName = worksheets[0].name || '';
+    }
 
-        for (const day of DAYS) {
-            wordsByDay[day] = [];
-            morphemesByDay[day] = [];
+    calendarGrid.innerHTML = '';
+    updateWorksheetDisplay();
+
+    if (currentWorksheetId !== null) {
+        const entries = await fetchWords(currentWorksheetId);
+        wordsByColumn = {};
+        morphemesByColumn = {};
+
+        for (let i = 0; i < 7; i++) {
+            wordsByColumn[i] = [];
+            morphemesByColumn[i] = [];
         }
 
-        words.forEach(word => {
-            const dayShort = Object.keys(DAY_MAP).find(key => DAY_MAP[key] === word.dayOfWeek);
-            if (dayShort && wordsByDay[dayShort]) {
-                wordsByDay[dayShort][word.position] = word.word.text;
-                if (word.morphemeString) {
-                   morphemesByDay[dayShort][word.position] = word.morphemeString;
+        entries.forEach(entry => {
+            if (wordsByColumn[entry.columnIndex]) {
+                wordsByColumn[entry.columnIndex][entry.position] = entry.word.text;
+                if (entry.morphemeString) {
+                   morphemesByColumn[entry.columnIndex][entry.position] = entry.morphemeString;
                 }
             }
         });
     }
 
 
-    for (const day of DAYS) {
+    for (let i = 0; i < 7; i++) {
         const dayColumn = document.createElement('section');
-        dayColumn.className = `day-column ${day === 'SUN' ? '' : 'border-r border-gray-200'}`;
-
-        const dayDate = getWeekMonday(weekOffset);
-        dayDate.setDate(dayDate.getDate() + DAYS.indexOf(day));
+        dayColumn.className = `day-column ${i === 6 ? '' : 'border-r border-gray-200'}`;
 
         dayColumn.innerHTML = `
             <div class="bg-academic-gray border-b border-gray-200 p-2 flex justify-between items-center">
-                <span class="text-[11px] font-bold uppercase tracking-wider">${day}</span>
-                <span class="text-[9px] text-text-muted italic">${dayDate.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit' })}</span>
-            </div>
-            <div class="p-2 border-b border-gray-200 bg-white">
-                <p class="text-[9px] font-bold text-text-muted uppercase tracking-widest mb-1">FOCUS</p>
-                <input class="focus-input font-serif italic text-text-muted text-sm bg-transparent border-none p-0 w-full" placeholder="e.g. ambi–" value="${focusWordsByDay[day] || ''}" data-day="${day}" />
+                <span class="text-[11px] font-bold uppercase tracking-wider">${COLUMN_HEADERS[i]}</span>
             </div>
             <div class="word-slots-container">
-                ${Array(7).fill(0).map((_, i) => {
-                    const word = wordsByDay[day]?.[i] || '';
-                    const morphemeStr = morphemesByDay[day]?.[i] || '';
+                ${Array(7).fill(0).map((_, j) => {
+                    const word = wordsByColumn[i]?.[j] || '';
+                    const morphemeStr = morphemesByColumn[i]?.[j] || '';
                     return `
-                        <div class="word-slot p-2 h-20 flex flex-col justify-center" data-day="${day}" data-index="${i}">
+                        <div class="word-slot p-2 h-20 flex flex-col justify-center border-b border-gray-100" data-col-index="${i}" data-position="${j}">
                             <div class="flex items-start space-x-2">
-                                <span class="text-[10px] font-bold text-text-muted mt-1">${i + 1}</span>
+                                <span class="text-[10px] font-bold text-text-muted mt-1">${j + 1}</span>
                                 <div class="w-full">
                                     ${word ? `
-                                        <a href="https://www.thewordfinder.com/define/${word.toLowerCase()}" target="_blank" class="word-text font-serif text-lg block leading-none mb-1 cursor-pointer">${word}</a>
-                                        <span class="material-symbols-outlined edit-button text-[18px] text-gray-400 hover:text-black cursor-pointer select-none">edit</span>
+                                        <div class="flex justify-between items-start">
+                                            <a href="https://www.thewordfinder.com/define/${word.toLowerCase()}" target="_blank" class="word-text font-serif text-lg block leading-none mb-1 cursor-pointer hover:underline">${word}</a>
+                                            <span class="material-symbols-outlined edit-button text-[18px] text-gray-400 hover:text-black cursor-pointer select-none">edit</span>
+                                        </div>
                                     ` : `
                                         <span class="font-serif italic text-lg text-text-muted block leading-none mb-1 cursor-pointer">word...</span>
                                     `}
@@ -191,18 +233,21 @@ async function createAndPopulateCalendar() {
         calendarGrid.appendChild(dayColumn);
     }
 
-    // Add event listeners for focus inputs to save state locally so it persists on re-render
-    calendarGrid.querySelectorAll('.focus-input').forEach(input => {
-        input.addEventListener('input', (e) => {
-            const target = e.target as HTMLInputElement;
-            focusWordsByDay[target.dataset.day!] = target.value;
-        });
-    });
-
      // Prevent clicks on morpheme inputs from bubbling up to the slot and triggering edit mode
      calendarGrid.querySelectorAll('.morpheme-guide').forEach(input => {
         input.addEventListener('click', (e) => {
             e.stopPropagation();
+        });
+        input.addEventListener('blur', async (e) => {
+            const target = e.target as HTMLInputElement;
+            const slot = target.closest('.word-slot') as HTMLElement;
+            const colIndex = parseInt(slot.dataset.colIndex!);
+            const position = parseInt(slot.dataset.position!);
+            const word = wordsByColumn[colIndex]?.[position] || '';
+            if (word) {
+                await saveWordData(colIndex, position, word, target.value);
+                await createAndPopulateCalendar();
+            }
         });
     });
 
@@ -226,13 +271,11 @@ async function createAndPopulateCalendar() {
 }
 
 /**
- * Fetches the list of words from the backend API for a specific week.
- * @param offset - The week offset from the current week.
+ * Fetches the list of words from the backend API for a specific worksheet.
  */
-async function fetchWords(offset: number): Promise<VocabularyWord[]> {
+async function fetchWords(worksheetId: number): Promise<WorksheetEntry[]> {
   try {
-    const monday = getWeekMonday(offset);
-    const response = await fetch(`${API_URL}/words?date=${monday.toISOString()}`);
+    const response = await fetch(`${API_URL}/worksheets/${worksheetId}/words`);
     if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
     }
@@ -244,76 +287,65 @@ async function fetchWords(offset: number): Promise<VocabularyWord[]> {
 }
 
 /**
- * Clears all words for the current week from the database.
- * @param offset - The week offset from the current week.
+ * Saves a word to the backend.
  */
-async function clearWords(offset: number) {
+async function saveWordData(columnIndex: number, position: number, wordText: string, morphemeString: string) {
+    if (currentWorksheetId === null) return;
     try {
-        const monday = getWeekMonday(offset);
-        const response = await fetch(`${API_URL}/words?date=${monday.toISOString()}`, {
-            method: 'DELETE',
+        await fetch(`${API_URL}/worksheets/${currentWorksheetId}/words`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ wordText, columnIndex, position, morphemeString }),
         });
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
     } catch (error) {
-        console.error('Failed to clear words:', error);
+        console.error('Failed to save word:', error);
     }
 }
 
-/**
- * Saves the current calendar data to the backend.
- */
-async function saveCalendarData() {
-    await clearWords(weekOffset);
-    const savePromises: Promise<any>[] = [];
+function addEventListeners() {
+    const newSheetButton = document.getElementById('new-sheet-button') as HTMLButtonElement;
+    const prevSheetButton = document.getElementById('prev-sheet-button') as HTMLButtonElement;
+    const sheetSelect = document.getElementById('sheet-select') as HTMLSelectElement;
+    const sheetNameInput = document.getElementById('sheet-name-input') as HTMLInputElement;
 
-    const monday = getWeekMonday(weekOffset);
-
-    for (const day in wordsByDay) {
-        wordsByDay[day].forEach((wordText, position) => {
-            const dayOfWeek = DAY_MAP[day];
-            const morphemeString = morphemesByDay[day]?.[position] || '';
-
-            if (wordText && dayOfWeek !== undefined) {
-                savePromises.push(fetch(`${API_URL}/words`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ wordText, date: monday.toISOString(), dayOfWeek, position, morphemeString }),
-                }).catch(error => console.error('Failed to save word:', error)));
+    if(newSheetButton) {
+        newSheetButton.addEventListener('click', () => {
+            createNewSheet();
+        });
+    }
+    
+    if(prevSheetButton) {
+        prevSheetButton.addEventListener('click', () => {
+            if (currentWorksheetId !== null && worksheets.length > 1) {
+                const currentIndex = worksheets.findIndex(ws => ws.id === currentWorksheetId);
+                const nextIndex = (currentIndex + 1) % worksheets.length;
+                currentWorksheetId = worksheets[nextIndex].id;
+                worksheetName = worksheets[nextIndex].name || '';
+                wordsByColumn = {};
+                createAndPopulateCalendar();
             }
         });
     }
 
-    await Promise.all(savePromises);
-}
-
-function addEventListeners() {
-    const lastWeekButton = document.getElementById('last-week-button') as HTMLButtonElement;
-    const nextWeekButton = document.getElementById('next-week-button') as HTMLButtonElement;
-    const currentWeekButton = document.getElementById('current-week-button') as HTMLButtonElement;
-
-    if(lastWeekButton) {
-        lastWeekButton.addEventListener('click', () => {
-            weekOffset--;
-            wordsByDay = {};
-            createAndPopulateCalendar();
-        });
-    }
-    
-    if(nextWeekButton) {
-        nextWeekButton.addEventListener('click', () => {
-            weekOffset++;
-            wordsByDay = {};
+    if(sheetSelect) {
+        sheetSelect.addEventListener('change', () => {
+            currentWorksheetId = parseInt(sheetSelect.value);
+            const ws = worksheets.find(w => w.id === currentWorksheetId);
+            worksheetName = ws ? (ws.name || '') : '';
+            wordsByColumn = {};
             createAndPopulateCalendar();
         });
     }
 
-    if(currentWeekButton) {
-        currentWeekButton.addEventListener('click', () => {
-            weekOffset = 0;
-            wordsByDay = {};
-            createAndPopulateCalendar();
+    if(sheetNameInput) {
+        sheetNameInput.addEventListener('blur', () => {
+            renameCurrentSheet(sheetNameInput.value);
+        });
+        sheetNameInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                renameCurrentSheet(sheetNameInput.value);
+                sheetNameInput.blur();
+            }
         });
     }
 }
@@ -321,15 +353,18 @@ function addEventListeners() {
 export function renderCalendar(element: HTMLElement) {
     element.innerHTML = `
     <main class="calendar-container p-4">
-        <div class="flex justify-between items-center max-w-[95%] mx-auto mb-4">
-             <h2 id="week-display" class="text-lg font-bold text-gray-700 uppercase tracking-wide"></h2>
+        <div class="flex justify-between items-center max-w-[95%] mx-auto mb-4 bg-white p-3 rounded-lg shadow-sm border border-gray-100">
+             <div class="flex items-center space-x-4">
+                <input id="sheet-name-input" class="text-xl font-bold text-gray-800 border-b-2 border-transparent hover:border-gray-200 focus:border-academic-blue focus:outline-none bg-transparent py-1" placeholder="Sheet Name..." />
+                <select id="sheet-select" class="text-sm border-gray-300 rounded-md focus:ring-academic-blue focus:border-academic-blue bg-gray-50 p-1">
+                </select>
+             </div>
              <div class="flex space-x-2">
-                <button id="last-week-button" class="px-3 py-1 text-xs font-bold uppercase tracking-wider border border-gray-300 rounded hover:bg-gray-100 text-gray-600">Prev</button>
-                <button id="current-week-button" class="px-3 py-1 text-xs font-bold uppercase tracking-wider border border-gray-300 rounded hover:bg-gray-100 text-gray-600">This Week</button>
-                <button id="next-week-button" class="px-3 py-1 text-xs font-bold uppercase tracking-wider border border-gray-300 rounded hover:bg-gray-100 text-gray-600">Next</button>
+                <button id="prev-sheet-button" class="px-4 py-2 text-xs font-bold uppercase tracking-wider border border-gray-300 rounded-md hover:bg-gray-100 text-gray-600 transition-colors">Previous Sheet</button>
+                <button id="new-sheet-button" class="px-4 py-2 text-xs font-bold uppercase tracking-wider bg-black text-white rounded-md hover:bg-gray-800 transition-colors">New Sheet</button>
              </div>
         </div>
-        <div class="calendar-grid grid grid-cols-7 gap-0 bg-white border border-gray-200 shadow-sm max-w-[95%] mx-auto" id="calendar-grid">
+        <div class="calendar-grid grid grid-cols-7 gap-0 bg-white border border-gray-200 shadow-lg max-w-[95%] mx-auto rounded-lg overflow-hidden" id="calendar-grid">
         </div>
     </main>
     `;
