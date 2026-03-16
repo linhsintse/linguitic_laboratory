@@ -373,12 +373,66 @@ export async function getAccount() {
       select: {
         id: true,
         email: true,
+        username: true,
         name: true,
       }
     });
     return user;
   } catch (error) {
     console.error("Database Error fetching account:", error);
+    throw error;
+  }
+}
+
+/**
+ * Creates a new user account.
+ */
+export async function createAccount(data: { email: string; username: string; name: string | null; password?: string }) {
+  try {
+    const user = await prisma.user.create({
+      data: {
+        email: data.email,
+        username: data.username,
+        name: data.name,
+        password: data.password || 'password', // Default password if not provided
+      },
+      select: {
+        id: true,
+        email: true,
+        username: true,
+        name: true,
+      }
+    });
+    return user;
+  } catch (error) {
+    console.error("Database Error creating account:", error);
+    throw error;
+  }
+}
+
+/**
+ * Updates an existing user account.
+ */
+export async function updateAccount(id: number, data: { email?: string; username?: string; name?: string | null; password?: string }) {
+  try {
+    const user = await prisma.user.update({
+      where: { id },
+      data: {
+        ...(data.email && { email: data.email }),
+        ...(data.username && { username: data.username }),
+        ...(data.name !== undefined && { name: data.name }),
+        ...(data.password && { password: data.password }),
+      },
+      select: {
+        id: true,
+        email: true,
+        username: true,
+        name: true,
+      }
+    });
+    return user;
+  } catch (error) {
+    console.error("Database Error updating account:", error);
     throw error;
   }
 }
@@ -432,6 +486,7 @@ export async function addMorphemeToWord(
             },
             create: { 
               text: formattedMorpheme,
+              displaytext: formattedMorpheme,
               meaning: formattedMeaning,
               type: morphemeType
             },

@@ -12,6 +12,8 @@ import {
   searchWords,
   getProgress,
   getAccount,
+  createAccount,
+  updateAccount,
   getWordsForMorpheme,
   autoParseWord
 } from './database';
@@ -174,6 +176,38 @@ app.get('/api/account', async (req, res) => {
     } catch (error) {
         console.error("Failed to fetch account:", error);
         res.status(500).json({ error: "Internal server error while fetching account." });
+    }
+});
+
+app.post('/api/account', async (req, res) => {
+    try {
+        const { email, username, name, password } = req.body;
+        if (!email || !username || !password) {
+            return res.status(400).json({ error: "Email, username, and password are required." });
+        }
+        const newAccount = await createAccount({ email, username, name, password });
+        res.status(201).json(newAccount);
+    } catch (error) {
+        console.error("Failed to create account:", error);
+        res.status(500).json({ error: "Internal server error while creating account." });
+    }
+});
+
+app.put('/api/account', async (req, res) => {
+    try {
+        // For simple single-user simulation, we first fetch the account to get its ID.
+        // In a real app, this would be based on an auth token or session.
+        const account = await getAccount();
+        if (!account) {
+            return res.status(404).json({ error: "Account not found to update." });
+        }
+
+        const { email, username, name, password } = req.body;
+        const updatedAccount = await updateAccount(account.id, { email, username, name, password });
+        res.status(200).json(updatedAccount);
+    } catch (error) {
+        console.error("Failed to update account:", error);
+        res.status(500).json({ error: "Internal server error while updating account." });
     }
 });
 
