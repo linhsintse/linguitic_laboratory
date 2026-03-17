@@ -40,6 +40,55 @@ let worksheetName: string = '';
 
 // --- Functions ---
 
+function updateSlotUI(slot: HTMLElement, _colIndex: number, _position: number, word: string, morphemes: Morpheme[]) {
+    const wFullDiv = slot.querySelector('.w-full');
+    if (!wFullDiv) return;
+
+    const morphemeTagsHTML = morphemes.map(m =>
+        `<span class="inline-flex items-center bg-blue-100 text-blue-800 text-[10px] font-medium mr-1 px-1.5 py-0.5 rounded-full">${m.displaytext}</span>`
+    ).join('');
+
+    wFullDiv.innerHTML = `
+        ${word ? `
+            <div class="flex justify-between items-start">
+                <a href="https://www.thewordfinder.com/define/${word.toLowerCase()}" target="_blank" class="word-text font-serif text-lg block leading-none mb-1 cursor-pointer hover:underline">${word}</a>
+                <span class="material-symbols-outlined edit-button text-[18px] text-gray-400 hover:text-black cursor-pointer select-none">edit</span>
+            </div>
+        ` : `
+            <span class="font-serif italic text-lg text-text-muted block leading-none mb-1 cursor-pointer">word...</span>
+        `}
+        <div class="morpheme-tags-container flex flex-wrap gap-1 mt-1">
+            ${morphemeTagsHTML}
+            ${word ? `<button class="add-morpheme-btn inline-flex items-center justify-center w-4 h-4 rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200 focus:outline-none" title="Add Morpheme">+</button>` : ''}
+        </div>
+    `;
+
+    // Reattach listeners to new elements
+    const editButton = slot.querySelector('.edit-button');
+    if (editButton) {
+        editButton.addEventListener('click', (e) => {
+            e.stopPropagation();
+            enterEditMode(slot);
+        });
+    }
+
+    const addMorphemeBtn = slot.querySelector('.add-morpheme-btn');
+    if (addMorphemeBtn) {
+        addMorphemeBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            enterEditMode(slot);
+        });
+    }
+
+    const wordTextSpan = slot.querySelector('.word-text, .font-serif.italic');
+    if (wordTextSpan) {
+        // we already have a slot click listener that handles the area, but the
+        // link prevents default behavior. we can let the slot listener handle it
+        // but we just need to make sure the slot listener is still there, which it is
+        // since we didn't replace the slot element itself.
+    }
+}
+
 async function fetchWorksheets() {
     try {
         const response = await fetch(`${API_URL}/worksheets`);
@@ -197,15 +246,59 @@ function enterEditMode(slot: HTMLElement) {
         }
         morphemesByColumn[columnIndex][position] = (window as any).selectedMorphemes || [];
 
+        // Ensure tags are fully loaded. If we are saving right away on enter, the blur hasn't fired yet
+        // or fetched suggestions. Let's do a fast check if we need to fetch.
+        let morphemes = (window as any).selectedMorphemes || [];
+        if (newWord && newWord !== currentWord && (window as any).lastFetchedWord !== newWord) {
+            try {
+                const response = await fetch(`${API_URL}/morphemes/parse?word=${newWord}`);
+                if (response.ok) {
+                    morphemes = await response.json();
+                    morphemesByColumn[columnIndex][position] = morphemes;
+                }
+            } catch (error) {
+                console.error('Error auto parsing on save:', error);
+            }
+        }
+
         await saveWordData(columnIndex, position, newWord, newMorphemeString);
-        await createAndPopulateWorksheet();
+        updateSlotUI(slot, columnIndex, position, newWord, morphemes);
+
+        // Let's clear the global state so it's clean for the next edit
+        (window as any).selectedMorphemes = null;
+        (window as any).lastFetchedWord = null;
+
+        // We only move focus to the next slot if the save was triggered by enter, not blur
+        return true;
     };
 
     // We don't save on word input blur anymore to allow interacting with suggested tags.
     // Save happens on Enter or when blurring the morpheme guide.
-    input.addEventListener('keydown', (e) => {
+    input.addEventListener('keydown', async (e) => {
         if (e.key === 'Enter') {
-            save();
+            const saved = await save();
+            if (saved) {
+                // Focus the next slot based on current position
+                const columnIndex = parseInt((slot as HTMLDivElement).dataset.colIndex!);
+                const position = parseInt((slot as HTMLDivElement).dataset.position!);
+                const nextPosition = position + 1;
+
+                if (nextPosition < 7) {
+                    const grid = document.getElementById('worksheet-grid');
+                    const nextSlot = grid?.querySelector(`.word-slot[data-col-index="${columnIndex}"][data-position="${nextPosition}"]`) as HTMLElement;
+                    if (nextSlot) {
+                        enterEditMode(nextSlot);
+                    }
+                } else if (columnIndex < 6) {
+                    // move to next column first slot
+                    const nextCol = columnIndex + 1;
+                    const grid = document.getElementById('worksheet-grid');
+                    const nextSlot = grid?.querySelector(`.word-slot[data-col-index="${nextCol}"][data-position="0"]`) as HTMLElement;
+                    if (nextSlot) {
+                        enterEditMode(nextSlot);
+                    }
+                }
+            }
         }
     });
 
@@ -283,7 +376,7 @@ export async function createAndPopulateWorksheet() {
                     ).join('');
 
                     return `
-                        <div class="word-slot p-2 h-20 flex flex-col justify-center border-b border-gray-100" data-col-index="${i}" data-position="${j}">
+                        <div class="word-slot p-2 min-h-[5rem] h-auto flex flex-col justify-center border-b border-gray-100 transition-all duration-200" data-col-index="${i}" data-position="${j}">
                             <div class="flex items-start space-x-2">
                                 <span class="text-[10px] font-bold text-text-muted mt-1">${j + 1}</span>
                                 <div class="w-full">

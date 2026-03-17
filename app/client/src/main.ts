@@ -35,9 +35,14 @@ function initAutoParser() {
         const word = wordInput.value.trim();
         if (!word) {
             selectedMorphemes = [];
+            (window as any).selectedMorphemes = selectedMorphemes;
             renderTags(tagContainer);
             return;
         }
+
+        // Avoid re-fetching if we already fetched for this exact word in this session
+        // (unless the user manually altered tags, but for auto-parser, we just want to avoid jitter)
+        if ((window as any).lastFetchedWord === word) return;
 
         try {
             const response = await fetch(`http://localhost:3000/api/morphemes/parse?word=${word}`);
@@ -49,6 +54,7 @@ function initAutoParser() {
             // Replace current state with new suggestions
             selectedMorphemes = suggestions;
             (window as any).selectedMorphemes = selectedMorphemes;
+            (window as any).lastFetchedWord = word;
             renderTags(tagContainer);
             updateMorphemeGuide(wordInput);
         } catch (error) {
