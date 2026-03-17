@@ -25,6 +25,7 @@ async function main() {
       create: {
         type: item.type,
         text: item.text,
+        displaytext: item.displaytext || item.text,
         meaning: item.meaning,
         frequency: item.frequency,
         origin: item.origin,

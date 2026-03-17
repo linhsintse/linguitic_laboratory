@@ -80,13 +80,15 @@ app.get('/api/worksheets/:id/words', async (req, res) => {
     // Reconstruct morphemeString for frontend
     const mappedEntries = entries.map(entry => {
       let morphemeString = '';
+      let morphemes: any[] = [];
       if (entry.word && entry.word.morphemes && entry.word.morphemes.length > 0) {
-          const prefixes = entry.word.morphemes.filter(wm => wm.morpheme.type === 'prefix').map(wm => wm.morpheme.text);
+          morphemes = entry.word.morphemes.map(wm => wm.morpheme);
+          const prefixes = entry.word.morphemes.filter(wm => wm.morpheme.type === 'prefix').map(wm => wm.morpheme.displaytext);
           const roots = entry.word.morphemes.filter(wm => wm.morpheme.type === 'root').map(wm => `[${wm.morpheme.text}]`);
-          const suffixes = entry.word.morphemes.filter(wm => wm.morpheme.type === 'suffix').map(wm => wm.morpheme.text);
+          const suffixes = entry.word.morphemes.filter(wm => wm.morpheme.type === 'suffix').map(wm => wm.morpheme.displaytext);
 
           let str = "";
-          for (let p of prefixes) { str += p; } // prefix text usually ends with -
+          for (let p of prefixes) { str += p; }
           for (let r of roots) { str += r; }
           for (let s of suffixes) {
              if (!str.endsWith("-") && str !== "" && !s.startsWith("-")) str += "-";
@@ -97,6 +99,7 @@ app.get('/api/worksheets/:id/words', async (req, res) => {
 
       return {
         ...entry,
+        morphemes,
         morphemeString
       };
     });
@@ -111,11 +114,11 @@ app.get('/api/worksheets/:id/words', async (req, res) => {
 app.post('/api/worksheets/:id/words', async (req, res) => {
   try {
     const worksheetId = parseInt(req.params.id);
-    const { wordText, columnIndex, position, morphemeString } = req.body;
+    const { wordText, columnIndex, position, morphemeString, morphemes } = req.body;
 
     if (isNaN(worksheetId)) return res.status(400).json({ error: "Invalid worksheet ID." });
 
-    const newEntry = await addWordToWorksheet(worksheetId, wordText, columnIndex, position, morphemeString);
+    const newEntry = await addWordToWorksheet(worksheetId, wordText, columnIndex, position, morphemeString, morphemes);
     res.status(201).json(newEntry);
   } catch (error) {
     console.error("Failed to add word:", error);
