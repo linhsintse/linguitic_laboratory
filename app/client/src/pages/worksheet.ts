@@ -55,7 +55,7 @@ function updateSlotUI(slot: HTMLElement, _colIndex: number, _position: number, w
                     <a href="https://www.thewordfinder.com/define/${word.toLowerCase()}" target="_blank" class="word-text font-serif text-lg block leading-none mb-1 cursor-pointer hover:underline">${word}</a>
                 </div>
                                             <div class="hidden group-hover:flex items-center gap-1 shrink-0 absolute right-0 top-0 bg-white">
-                    <span class="material-symbols-outlined parse-button text-[18px] text-gray-400 hover:text-blue-500 cursor-pointer select-none" title="Auto-parse tags">auto_awesome</span>
+                    <span class="material-symbols-outlined parse-button text-[18px] text-gray-400 hover:text-blue-500 cursor-pointer select-none" title="Auto-parse tags">autorenew</span>
                     <span class="material-symbols-outlined edit-button text-[18px] text-gray-400 hover:text-black cursor-pointer select-none" title="Edit tags">edit</span>
                 </div>
             </div>
