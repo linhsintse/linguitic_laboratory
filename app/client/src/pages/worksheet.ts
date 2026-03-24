@@ -145,6 +145,36 @@ async function renameCurrentSheet(name: string) {
     }
 }
 
+async function deleteCurrentSheet() {
+    if (currentWorksheetId === null) return;
+    
+    if (!confirm('Are you sure you want to delete this worksheet? This action cannot be undone.')) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`${API_URL}/worksheets/${currentWorksheetId}`, {
+            method: 'DELETE'
+        });
+        if (!response.ok) throw new Error('Failed to delete worksheet');
+        
+        await fetchWorksheets();
+        
+        if (worksheets.length > 0) {
+            currentWorksheetId = worksheets[0].id;
+            worksheetName = worksheets[0].name || '';
+        } else {
+            currentWorksheetId = null;
+            worksheetName = '';
+        }
+        wordsByColumn = {};
+        morphemesByColumn = {};
+        await createAndPopulateWorksheet();
+    } catch (error) {
+        console.error('Error deleting worksheet:', error);
+    }
+}
+
 function updateWorksheetDisplay() {
     const sheetNameInput = document.getElementById('sheet-name-input') as HTMLInputElement;
     if (sheetNameInput) {
@@ -535,6 +565,7 @@ function addEventListeners() {
     const prevSheetButton = document.getElementById('prev-sheet-button') as HTMLButtonElement;
     const nextSheetButton = document.getElementById('next-sheet-button') as HTMLButtonElement;
     const sheetSelect = document.getElementById('sheet-select') as HTMLSelectElement;
+    const deleteSheetButton = document.getElementById('delete-sheet-button') as HTMLButtonElement;
     const sheetNameInput = document.getElementById('sheet-name-input') as HTMLInputElement;
 
     if(newSheetButton) {
@@ -573,6 +604,12 @@ function addEventListeners() {
         });
     }
 
+    if(deleteSheetButton) {
+        deleteSheetButton.addEventListener('click', () => {
+            deleteCurrentSheet();
+        });
+    }
+
     if(sheetSelect) {
         sheetSelect.addEventListener('change', () => {
             currentWorksheetId = parseInt(sheetSelect.value);
@@ -608,6 +645,7 @@ export function renderWorksheet(element: HTMLElement) {
                 </select>
                 <button id="prev-sheet-button" class="px-4 py-2 text-xs font-bold uppercase tracking-wider border border-gray-300 rounded-md hover:bg-gray-100 text-gray-600 transition-colors">Previous Sheet</button>
                 <button id="next-sheet-button" class="px-4 py-2 text-xs font-bold uppercase tracking-wider border border-gray-300 rounded-md hover:bg-gray-100 text-gray-600 transition-colors">Next Sheet</button>
+                <button id="delete-sheet-button" class="px-4 py-2 text-xs font-bold uppercase tracking-wider border border-red-300 rounded-md hover:bg-red-50 text-red-600 transition-colors">Delete Sheet</button>
                 <button id="new-sheet-button" class="px-4 py-2 text-xs font-bold uppercase tracking-wider bg-black text-white rounded-md hover:bg-gray-800 transition-colors">New Sheet</button>
              </div>
         </div>

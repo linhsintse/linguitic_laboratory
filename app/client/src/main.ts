@@ -1,7 +1,6 @@
 import './style.css';
 import './router';
 
-// Best-Effort Auto-Parser with Manual Override logic
 
 interface Morpheme {
     id: number;
@@ -11,12 +10,6 @@ interface Morpheme {
     meaning: string;
 }
 
-/**
- * State Management for Selected Morphemes
- * We keep an array of morpheme objects that are currently displayed as tags.
- * When a user blurs the word input, we fetch suggestions and update this state.
- * Users can also manually remove tags by clicking the "x".
- */
 let selectedMorphemes: Morpheme[] = [];
 
 function initAutoParser() {
