@@ -14,8 +14,7 @@ import {
   getAccount,
   createAccount,
   updateAccount,
-  getWordsForMorpheme,
-  autoParseWord
+  getWordsForMorpheme
 } from './database';
 
 const app = express();
@@ -129,20 +128,6 @@ app.post('/api/worksheets/:id/words', async (req, res) => {
 });
 
 // --- Other Endpoints ---
-
-app.get('/api/morphemes/parse', async (req, res) => {
-  try {
-    const word = req.query.word;
-    if (!word || typeof word !== 'string') {
-      return res.status(400).json({ error: "Missing or invalid 'word' query parameter." });
-    }
-    const suggestions = await autoParseWord(word);
-    res.status(200).json(suggestions);
-  } catch (error) {
-    console.error("Failed to auto-parse word:", error);
-    res.status(500).json({ error: "Internal server error while auto-parsing word." });
-  }
-});
 
 app.get('/api/words/search', async (req, res) => {
     try {
