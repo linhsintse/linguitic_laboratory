@@ -3,14 +3,14 @@ interface Worksheet {
   id: number;
   name: string | null;
   createdAt: string;
+  columns: WorksheetColumn[];
 }
 
-interface Morpheme {
-    id: number;
-    text: string;
-    displaytext: string;
-    type: string;
-    meaning: string;
+interface WorksheetColumn {
+  id: number;
+  worksheetId: number;
+  columnIndex: number;
+  name: string;
 }
 
 interface WorksheetEntry {
@@ -23,30 +23,22 @@ interface WorksheetEntry {
     id: number;
     text: string;
   };
-  morphemes?: Morpheme[];
-  morphemeString?: string;
 }
 
 // The base URL for the backend API.
 const API_URL = 'http://localhost:3000/api';
-const COLUMN_HEADERS = ['COL 1', 'COL 2', 'COL 3', 'COL 4', 'COL 5', 'COL 6', 'COL 7'];
 
 // --- State ---
 let worksheets: Worksheet[] = [];
 let currentWorksheetId: number | null = null;
 let wordsByColumn: { [key: number]: string[] } = {};
-let morphemesByColumn: { [key: number]: Morpheme[][] } = {};
 let worksheetName: string = '';
 
 // --- Functions ---
 
-function updateSlotUI(slot: HTMLElement, _colIndex: number, _position: number, word: string, morphemes: Morpheme[]) {
+function updateSlotUI(slot: HTMLElement, _colIndex: number, _position: number, word: string) {
     const wFullDiv = slot.querySelector('.w-full');
     if (!wFullDiv) return;
-
-    const morphemeTagsHTML = morphemes.map(m =>
-        `<span class="inline-flex items-center bg-blue-100 text-blue-800 text-[10px] font-medium mr-1 px-1.5 py-0.5 rounded-full">${m.displaytext}</span>`
-    ).join('');
 
     wFullDiv.innerHTML = `
         ${word ? `
@@ -55,17 +47,12 @@ function updateSlotUI(slot: HTMLElement, _colIndex: number, _position: number, w
                     <a href="https://www.thewordfinder.com/define/${word.toLowerCase()}" target="_blank" class="word-text font-serif text-lg block leading-none mb-1 cursor-pointer hover:underline">${word}</a>
                 </div>
                 <div class="hidden group-hover:flex items-center gap-1 shrink-0 absolute right-0 top-0 bg-white">
-                    <span class="material-symbols-outlined parse-button text-[18px] text-gray-400 hover:text-blue-500 cursor-pointer select-none" title="Auto-parse tags">autorenew</span>
-                    <span class="material-symbols-outlined edit-button text-[18px] text-gray-400 hover:text-black cursor-pointer select-none" title="Edit tags">edit</span>
+                    <span class="material-symbols-outlined edit-button text-[18px] text-gray-400 hover:text-black cursor-pointer select-none" title="Edit word">edit</span>
                 </div>
             </div>
         ` : `
             <span class="font-serif italic text-lg text-text-muted block leading-none mb-1 cursor-pointer">word...</span>
         `}
-        <div class="morpheme-tags-container flex flex-wrap gap-1 mt-1">
-            ${morphemeTagsHTML}
-            ${word ? `<button class="add-morpheme-btn inline-flex items-center justify-center w-4 h-4 rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200 focus:outline-none" title="Add Morpheme">+</button>` : ''}
-        </div>
     `;
 
     // Reattach listeners to new elements
@@ -75,22 +62,6 @@ function updateSlotUI(slot: HTMLElement, _colIndex: number, _position: number, w
             e.stopPropagation();
             enterEditMode(slot);
         });
-    }
-
-    const addMorphemeBtn = slot.querySelector('.add-morpheme-btn');
-    if (addMorphemeBtn) {
-        addMorphemeBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            enterEditMode(slot);
-        });
-    }
-
-    const wordTextSpan = slot.querySelector('.word-text, .font-serif.italic');
-    if (wordTextSpan) {
-        // we already have a slot click listener that handles the area, but the
-        // link prevents default behavior. we can let the slot listener handle it
-        // but we just need to make sure the slot listener is still there, which it is
-        // since we didn't replace the slot element itself.
     }
 }
 
@@ -120,7 +91,6 @@ async function createNewSheet() {
         currentWorksheetId = newSheet.id;
         worksheetName = newSheet.name || '';
         wordsByColumn = {};
-        morphemesByColumn = {};
         await fetchWorksheets();
         await createAndPopulateWorksheet();
     } catch (error) {
@@ -142,6 +112,18 @@ async function renameCurrentSheet(name: string) {
         updateWorksheetDisplay();
     } catch (error) {
         console.error('Error renaming worksheet:', error);
+    }
+}
+
+async function renameColumn(worksheetId: number, columnIndex: number, name: string) {
+    try {
+        await fetch(`${API_URL}/worksheets/${worksheetId}/columns`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ columnIndex, name })
+        });
+    } catch (error) {
+        console.error('Error renaming column:', error);
     }
 }
 
@@ -168,7 +150,6 @@ async function deleteCurrentSheet() {
             worksheetName = '';
         }
         wordsByColumn = {};
-        morphemesByColumn = {};
         await createAndPopulateWorksheet();
     } catch (error) {
         console.error('Error deleting worksheet:', error);
@@ -205,96 +186,15 @@ function enterEditMode(slot: HTMLElement) {
     input.className = 'word-edit-input font-serif text-lg block leading-none mb-1 bg-white border border-gray-300 p-1 w-full rounded focus:ring-1 focus:ring-academic-blue focus:border-academic-blue relative z-10';
     input.style.outline = 'none';
 
-    const tagContainer = document.createElement('div');
-    tagContainer.id = 'tag-container';
-    tagContainer.className = 'flex flex-wrap gap-1 mt-1 mb-2';
-
     if (wordTextSpan) {
         wordTextSpan.replaceWith(input);
-        input.after(tagContainer);
     } else {
         const placeholder = slot.querySelector('.font-serif.italic');
         if(placeholder) {
             placeholder.replaceWith(input);
-            input.after(tagContainer);
         }
     }
 
-    // Hide the non-edit tags
-    const nonEditTagsContainer = slot.querySelector('.morpheme-tags-container');
-    if (nonEditTagsContainer) {
-        (nonEditTagsContainer as HTMLElement).style.display = 'none';
-    }
-  
-    // Pre-populate global state if we already have morphemes for this slot
-    const colIndex = parseInt(slot.dataset.colIndex!);
-    const pos = parseInt(slot.dataset.position!);
-    if (morphemesByColumn[colIndex] && morphemesByColumn[colIndex][pos]) {
-        (window as any).selectedMorphemes = [...morphemesByColumn[colIndex][pos]];
-    } else {
-        (window as any).selectedMorphemes = [];
-    }
-
-    input.focus();
-    if ((window as any).initAutoParser) {
-        (window as any).initAutoParser();
-    }
-
-    let currentMorphemes: Morpheme[] = [];
-    if (morphemesByColumn[colIndex] && morphemesByColumn[colIndex][pos]) {
-        currentMorphemes = [...morphemesByColumn[colIndex][pos]];
-    }
-
-    const renderEditTags = () => {
-        tagContainer.innerHTML = '';
-        currentMorphemes.forEach((morpheme, index) => {
-            const tag = document.createElement('span');
-            tag.className = 'inline-flex items-center bg-blue-100 text-blue-800 text-[10px] font-medium mr-1 px-1.5 py-0.5 rounded-full';
-            tag.innerHTML = `${morpheme.displaytext}
-                <button type="button" class="ml-1 text-blue-600 hover:text-blue-800 focus:outline-none" data-index="${index}">
-                    &times;
-                </button>`;
-            tagContainer.appendChild(tag);
-        });
-
-        // Add the "+" button
-        const addBtn = document.createElement('button');
-        addBtn.className = 'add-morpheme-btn inline-flex items-center justify-center w-4 h-4 rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200 focus:outline-none';
-        addBtn.title = 'Add Morpheme';
-        addBtn.innerText = '+';
-        addBtn.onclick = (e) => {
-            e.preventDefault();
-            const text = prompt("Enter morpheme (e.g. pre-, dict, -ion):");
-            if (text && text.trim()) {
-                const trimmed = text.trim();
-                let type: 'prefix' | 'root' | 'suffix' = 'root';
-                if (trimmed.endsWith('-')) type = 'prefix';
-                else if (trimmed.startsWith('-')) type = 'suffix';
-
-                currentMorphemes.push({
-                    id: Date.now(), // Temp ID
-                    text: trimmed.replace(/-/g, ''),
-                    displaytext: trimmed,
-                    type,
-                    meaning: 'manual input'
-                });
-                renderEditTags();
-            }
-        };
-        tagContainer.appendChild(addBtn);
-
-        // Attach delete handlers
-        tagContainer.querySelectorAll('button[data-index]').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                e.preventDefault();
-                const index = parseInt((btn as HTMLButtonElement).dataset.index!);
-                currentMorphemes.splice(index, 1);
-                renderEditTags();
-            });
-        });
-    };
-
-    renderEditTags();
     input.focus();
 
     let isSaving = false;
@@ -307,65 +207,18 @@ function enterEditMode(slot: HTMLElement) {
         const columnIndex = parseInt((slot as HTMLDivElement).dataset.colIndex!);
         const position = parseInt((slot as HTMLDivElement).dataset.position!);
 
-        // Get tags from the global selectedMorphemes if the initAutoParser script ran.
-        // Wait, the main.ts currently handles updating it. Let's just pass an empty string
-        // or a reconstructed string.
-        // We will fetch selectedMorphemes from window if needed.
-        let newMorphemeString = '';
-        if ((window as any).selectedMorphemes) {
-            const selected = (window as any).selectedMorphemes as Morpheme[];
-            const prefixes = selected.filter(m => m.type === 'prefix').map(m => m.text);
-            const roots = selected.filter(m => m.type === 'root').map(m => `[${m.text}]`);
-            const suffixes = selected.filter(m => m.type === 'suffix').map(m => m.text);
-
-            let str = "";
-            for (let p of prefixes) { str += p; }
-            for (let r of roots) { str += r; }
-            for (let s of suffixes) {
-                if (!str.endsWith("-") && str !== "" && !s.startsWith("-")) str += "-";
-                str += s;
-            }
-            newMorphemeString = str;
-        }
-
         if (!wordsByColumn[columnIndex]) {
             wordsByColumn[columnIndex] = [];
         }
         wordsByColumn[columnIndex][position] = newWord;
 
-        if (!morphemesByColumn[columnIndex]) {
-            morphemesByColumn[columnIndex] = [];
-        }
-        morphemesByColumn[columnIndex][position] = (window as any).selectedMorphemes || [];
-
-        // Ensure tags are fully loaded. If we are saving right away on enter, the blur hasn't fired yet
-        // or fetched suggestions. Let's do a fast check if we need to fetch.
-        let morphemes = (window as any).selectedMorphemes || [];
-        if (newWord && newWord !== currentWord && (window as any).lastFetchedWord !== newWord) {
-            try {
-                const response = await fetch(`${API_URL}/morphemes/parse?word=${newWord}`);
-                if (response.ok) {
-                    morphemes = await response.json();
-                    morphemesByColumn[columnIndex][position] = morphemes;
-                }
-            } catch (error) {
-                console.error('Error auto parsing on save:', error);
-            }
-        }
-
-        await saveWordData(columnIndex, position, newWord, newMorphemeString);
-        updateSlotUI(slot, columnIndex, position, newWord, morphemes);
-
-        // Let's clear the global state so it's clean for the next edit
-        (window as any).selectedMorphemes = null;
-        (window as any).lastFetchedWord = null;
+        await saveWordData(columnIndex, position, newWord);
+        updateSlotUI(slot, columnIndex, position, newWord);
 
         // We only move focus to the next slot if the save was triggered by enter, not blur
         return true;
     };
 
-    // We don't save on word input blur anymore to allow interacting with suggested tags.
-    // Save happens on Enter or when blurring the morpheme guide.
     input.addEventListener('keydown', async (e) => {
         if (e.key === 'Enter') {
             const saved = await save();
@@ -394,9 +247,6 @@ function enterEditMode(slot: HTMLElement) {
         }
     });
 
-    // If the user clicks outside the slot, we might want to save.
-    // But since the add tag button is also in the slot, we can just save when blurring the input
-    // ONLY if the related target is not inside the slot.
     input.addEventListener('blur', (e) => {
         const relatedTarget = e.relatedTarget as HTMLElement;
         if (!slot.contains(relatedTarget)) {
@@ -410,9 +260,6 @@ function enterEditMode(slot: HTMLElement) {
     });
 }
 
-/**
- * Generates the worksheet grid and populates it with words.
- */
 export async function createAndPopulateWorksheet() {
     const worksheetGrid = document.getElementById('worksheet-grid') as HTMLDivElement;
     if (!worksheetGrid) return;
@@ -431,41 +278,37 @@ export async function createAndPopulateWorksheet() {
     if (currentWorksheetId !== null) {
         const entries = await fetchWords(currentWorksheetId);
         wordsByColumn = {};
-        morphemesByColumn = {};
 
         for (let i = 0; i < 7; i++) {
             wordsByColumn[i] = [];
-            morphemesByColumn[i] = [];
         }
 
         entries.forEach(entry => {
             if (wordsByColumn[entry.columnIndex]) {
                 wordsByColumn[entry.columnIndex][entry.position] = entry.word.text;
-                if (entry.morphemes) {
-                   morphemesByColumn[entry.columnIndex][entry.position] = entry.morphemes;
-                }
             }
         });
     }
 
     worksheetGrid.innerHTML = '';
 
+    const currentWorksheet = worksheets.find(w => w.id === currentWorksheetId);
+    const columns = currentWorksheet?.columns.sort((a, b) => a.columnIndex - b.columnIndex) || [];
+
     for (let i = 0; i < 7; i++) {
+        const column = columns[i];
         const dayColumn = document.createElement('section');
         dayColumn.className = `day-column ${i === 6 ? '' : 'border-r border-gray-200'}`;
 
         dayColumn.innerHTML = `
             <div class="bg-academic-gray border-b border-gray-200 p-2 flex justify-between items-center">
-                <span class="text-[11px] font-bold uppercase tracking-wider">${COLUMN_HEADERS[i]}</span>
+                <input class="column-name-input text-[11px] font-bold uppercase tracking-wider bg-transparent focus:outline-none w-full" 
+                       value="${column ? column.name : ''}" 
+                       data-column-index="${i}" />
             </div>
             <div class="word-slots-container">
                 ${Array(7).fill(0).map((_, j) => {
                     const word = wordsByColumn[i]?.[j] || '';
-                    const morphemes = morphemesByColumn[i]?.[j] || [];
-
-                    const morphemeTagsHTML = morphemes.map(m =>
-                        `<span class="inline-flex items-center bg-blue-100 text-blue-800 text-[10px] font-medium mr-1 px-1.5 py-0.5 rounded-full">${m.displaytext}</span>`
-                    ).join('');
 
                     return `
                         <div class="word-slot p-2 min-h-[5rem] h-auto flex flex-col justify-center border-b border-gray-100 transition-all duration-200" data-col-index="${i}" data-position="${j}">
@@ -478,17 +321,12 @@ export async function createAndPopulateWorksheet() {
                                                 <a href="https://www.thewordfinder.com/define/${word.toLowerCase()}" target="_blank" class="word-text font-serif text-lg block leading-none mb-1 cursor-pointer hover:underline">${word}</a>
                                             </div>
                                             <div class="hidden group-hover:flex items-center gap-1 shrink-0 absolute right-0 top-0 bg-white">
-                                                <span class="material-symbols-outlined parse-button text-[18px] text-gray-400 hover:text-blue-500 cursor-pointer select-none" title="Auto-parse tags">autorenew</span>
-                                                <span class="material-symbols-outlined edit-button text-[18px] text-gray-400 hover:text-black cursor-pointer select-none" title="Edit tags">edit</span>
+                                                <span class="material-symbols-outlined edit-button text-[18px] text-gray-400 hover:text-black cursor-pointer select-none" title="Edit word">edit</span>
                                             </div>
                                         </div>
                                     ` : `
                                         <span class="font-serif italic text-lg text-text-muted block leading-none mb-1 cursor-pointer">word...</span>
                                     `}
-                                    <div class="morpheme-tags-container flex flex-wrap gap-1 mt-1">
-                                        ${morphemeTagsHTML}
-                                        ${word ? `<button class="add-morpheme-btn inline-flex items-center justify-center w-4 h-4 rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200 focus:outline-none" title="Add Morpheme">+</button>` : ''}
-                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -498,6 +336,18 @@ export async function createAndPopulateWorksheet() {
         `;
         worksheetGrid.appendChild(dayColumn);
     }
+
+    // Add event listeners for editing column names
+    worksheetGrid.querySelectorAll('.column-name-input').forEach(input => {
+        input.addEventListener('blur', (e) => {
+            const target = e.target as HTMLInputElement;
+            const newName = target.value;
+            const colIndex = parseInt(target.dataset.columnIndex!);
+            if (currentWorksheetId !== null) {
+                renameColumn(currentWorksheetId, colIndex, newName);
+            }
+        });
+    });
 
      // Add event listeners for editing
      worksheetGrid.querySelectorAll('.word-slot').forEach(slot => {
@@ -515,16 +365,6 @@ export async function createAndPopulateWorksheet() {
                 enterEditMode(slot as HTMLElement);
             }
         });
-
-        // Handle Add Morpheme Button click
-        const addMorphemeBtn = slot.querySelector('.add-morpheme-btn');
-        if (addMorphemeBtn) {
-            addMorphemeBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                enterEditMode(slot as HTMLElement);
-                // Also trigger focusing the input and maybe show a prompt or just let them edit
-            });
-        }
     });
 }
 
@@ -547,13 +387,13 @@ async function fetchWords(worksheetId: number): Promise<WorksheetEntry[]> {
 /**
  * Saves a word to the backend.
  */
-async function saveWordData(columnIndex: number, position: number, wordText: string, morphemeString: string, morphemes: Morpheme[] = []) {
+async function saveWordData(columnIndex: number, position: number, wordText: string) {
     if (currentWorksheetId === null) return;
     try {
         await fetch(`${API_URL}/worksheets/${currentWorksheetId}/words`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ wordText, columnIndex, position, morphemeString, morphemes }),
+            body: JSON.stringify({ wordText, columnIndex, position }),
         });
     } catch (error) {
         console.error('Failed to save word:', error);

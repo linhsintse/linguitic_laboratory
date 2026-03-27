@@ -1,6 +1,6 @@
 import Navigo from 'navigo';
 import { renderWorksheet } from './pages/worksheet';
-import { renderMorphologyLibrary } from './pages/morphology-library';
+
 import { renderVocabularyProgress } from './pages/vocabulary-progress';
 import { renderSearch } from './pages/search';
 import { renderAccount } from './pages/account';
@@ -39,9 +39,7 @@ router.on({
     '/': () => {
         renderWorksheet(contentContainer);
     },
-    '/morphology-library': () => {
-        renderMorphologyLibrary(contentContainer);
-    },
+    
     '/vocabulary-progress': () => {
         renderVocabularyProgress(contentContainer);
     },

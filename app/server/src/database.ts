@@ -11,6 +11,9 @@ export async function getWorksheets() {
       orderBy: {
         createdAt: 'desc',
       },
+      include: {
+        columns: true,
+      },
     });
   } catch (error) {
     console.error("Database Error fetching worksheets:", error);
@@ -26,6 +29,17 @@ export async function createWorksheet(name?: string) {
     return await prisma.worksheet.create({
       data: {
         name: name || null,
+        columns: {
+          create: [
+            { columnIndex: 0, name: 'COL 1' },
+            { columnIndex: 1, name: 'COL 2' },
+            { columnIndex: 2, name: 'COL 3' },
+            { columnIndex: 3, name: 'COL 4' },
+            { columnIndex: 4, name: 'COL 5' },
+            { columnIndex: 5, name: 'COL 6' },
+            { columnIndex: 6, name: 'COL 7' },
+          ],
+        },
       },
     });
   } catch (error) {
@@ -45,6 +59,26 @@ export async function updateWorksheetName(id: number, name: string) {
     });
   } catch (error) {
     console.error("Database Error updating worksheet name:", error);
+    throw error;
+  }
+}
+
+/**
+ * Updates a worksheet column's name.
+ */
+export async function updateWorksheetColumnName(worksheetId: number, columnIndex: number, name: string) {
+  try {
+    return await prisma.worksheetColumn.update({
+      where: {
+        worksheetId_columnIndex: {
+            worksheetId,
+            columnIndex
+        }
+      },
+      data: { name },
+    });
+  } catch (error) {
+    console.error("Database Error updating worksheet column name:", error);
     throw error;
   }
 }
@@ -71,15 +105,7 @@ export async function getWordsForWorksheet(worksheetId: number) {
     return await prisma.worksheetEntry.findMany({
       where: { worksheetId },
       include: {
-        word: {
-          include: {
-            morphemes: {
-              include: {
-                morpheme: true
-              }
-            }
-          }
-        }
+        word: true
       },
       orderBy: [
         { columnIndex: 'asc' },
@@ -99,9 +125,7 @@ export async function addWordToWorksheet(
   worksheetId: number,
   wordText: string,
   columnIndex: number,
-  position: number,
-  morphemeString: string = "",
-  morphemes: Array<{id?: number, text: string, type: string, meaning: string, displaytext: string}> = []
+  position: number
 ) {
   const formattedWord = wordText.trim().toLowerCase();
 
@@ -137,51 +161,6 @@ export async function addWordToWorksheet(
       }
     });
 
-    // If we have an explicitly provided array of morphemes, save them.
-    // Otherwise fallback to the string processor.
-    if (morphemes && morphemes.length > 0) {
-      const word = await prisma.word.findUnique({ where: { text: formattedWord } });
-      if (word) {
-        await prisma.wordMorpheme.deleteMany({
-          where: { wordId: word.id }
-        });
-
-        for (const m of morphemes) {
-          // Find or create the morpheme
-          let dbMorpheme = await prisma.morpheme.findFirst({
-            where: { text: m.text.toLowerCase(), type: m.type }
-          });
-
-          if (!dbMorpheme) {
-             dbMorpheme = await prisma.morpheme.create({
-               data: {
-                 text: m.text.toLowerCase(),
-                 displaytext: m.displaytext || m.text.toLowerCase(),
-                 type: m.type,
-                 meaning: m.meaning || 'manual input'
-               }
-             });
-          }
-
-          await prisma.wordMorpheme.upsert({
-            where: {
-              wordId_morphemeId: {
-                wordId: word.id,
-                morphemeId: dbMorpheme.id
-              }
-            },
-            update: {},
-            create: {
-              wordId: word.id,
-              morphemeId: dbMorpheme.id
-            }
-          });
-        }
-      }
-    } else if (morphemeString.trim()) {
-      await processAndSaveMorphemes(formattedWord, morphemeString.trim());
-    }
-
     return entry;
   } catch (error) {
     console.error("Database Error adding word to worksheet:", error);
@@ -189,103 +168,11 @@ export async function addWordToWorksheet(
   }
 }
 
-/**
- * Fetches words that are linked to a specific morpheme.
- */
-export async function getWordsForMorpheme(morphemeId: number) {
-  try {
-    const wordMorphemes = await prisma.wordMorpheme.findMany({
-      where: {
-        morphemeId: morphemeId
-      },
-      include: {
-        word: true
-      }
-    });
-    return wordMorphemes.map(wm => wm.word);
-  } catch (error) {
-    console.error("Database Error fetching words for morpheme:", error);
-    throw error;
-  }
-}
 
-/**
- * Parses user input like "pre[dict]ion" or "pre-[dict]-ion" and saves the morphemes.
- * Only links existing morphemes from the database.
- */
-async function processAndSaveMorphemes(wordText: string, morphemeString: string) {
-  let root = '';
-  const rootMatch = morphemeString.match(/\[(.*?)\]/);
-  if (rootMatch) {
-    root = rootMatch[1].trim();
-  }
 
-  let prefix = '';
-  const prefixMatch = morphemeString.match(/^(.*?)-/);
-  if (prefixMatch) {
-    prefix = prefixMatch[1].trim();
-  }
 
-  let suffix = '';
-  const suffixMatch = morphemeString.match(/-([^-]*?)$/);
-  if (suffixMatch) {
-    suffix = suffixMatch[1].trim();
-  }
 
-  // Support "prefix[root]suffix" format
-  if (!prefix && !suffix && rootMatch) {
-    const parts = morphemeString.split(/\[.*?\]/);
-    if (parts.length >= 1) prefix = parts[0].trim();
-    if (parts.length >= 2) suffix = parts[1].trim();
-  }
 
-  // Clean up
-  prefix = prefix.replace(/[\[\]\-]/g, '').trim();
-  suffix = suffix.replace(/[\[\]\-]/g, '').trim();
-  root = root.replace(/[\[\]\-]/g, '').trim();
-
-  const word = await prisma.word.findUnique({ where: { text: wordText } });
-  if (!word) return;
-
-  // Clear existing morpheme links for this word before re-linking
-  await prisma.wordMorpheme.deleteMany({
-    where: { wordId: word.id }
-  });
-
-  if (prefix) await linkMorpheme(word.id, prefix, 'prefix');
-  if (root) await linkMorpheme(word.id, root, 'root');
-  if (suffix) await linkMorpheme(word.id, suffix, 'suffix');
-}
-
-/**
- * Links an existing morpheme to a word. Does NOT create new morphemes.
- */
-async function linkMorpheme(wordId: number, text: string, type: string) {
-  const formattedText = text.toLowerCase();
-
-  const morpheme = await prisma.morpheme.findFirst({
-    where: {
-      text: formattedText,
-      type: type
-    }
-  });
-
-  if (morpheme) {
-    await prisma.wordMorpheme.upsert({
-      where: {
-        wordId_morphemeId: {
-          wordId: wordId,
-          morphemeId: morpheme.id
-        }
-      },
-      update: {},
-      create: {
-        wordId: wordId,
-        morphemeId: morpheme.id
-      }
-    });
-  }
-}
 
 /**
  * Searches words containing the query string.
@@ -318,57 +205,10 @@ export async function getProgress() {
     const totalLearned = await prisma.worksheetEntry.count();
     const sheetsCreated = await prisma.worksheet.count();
 
-    // Grouping morphemes by type that users have ACTUALLY linked to words
-    const userMorphemes = await prisma.wordMorpheme.findMany({
-      include: {
-        morpheme: true
-      }
-    });
-
-    let totalPrefixes = 0;
-    let totalSuffixes = 0;
-    let totalRoots = 0;
-
-    // To track unique morphemes identified by user
-    const uniqueUserMorphemes = new Set();
-    const morphemeUsageCount: Record<string, {id: number, text: string, type: string, count: number}> = {};
-
-    for (const wm of userMorphemes) {
-       const m = wm.morpheme;
-       uniqueUserMorphemes.add(m.id);
-
-       if (!morphemeUsageCount[m.text]) {
-          morphemeUsageCount[m.text] = { id: m.id, text: m.text, type: m.type, count: 0 };
-       }
-       morphemeUsageCount[m.text].count += 1;
-    }
-
-    // Now count types among the unique morphemes identified
-    const uniqueMorphemeObjects = await prisma.morpheme.findMany({
-        where: {
-            id: { in: Array.from(uniqueUserMorphemes) as number[] }
-        }
-    });
-
-    for (const m of uniqueMorphemeObjects) {
-        if (m.type === 'prefix') totalPrefixes++;
-        else if (m.type === 'suffix') totalSuffixes++;
-        else if (m.type === 'root') totalRoots++;
-    }
-
-    const topMorphemes = Object.values(morphemeUsageCount)
-        .sort((a, b) => b.count - a.count)
-        .slice(0, 5);
-
     return {
         totalWords,
         totalLearned,
-        weeksTracked: sheetsCreated,
-        totalMorphemes: uniqueUserMorphemes.size,
-        totalPrefixes,
-        totalSuffixes,
-        totalRoots,
-        topMorphemes
+        weeksTracked: sheetsCreated
     };
   } catch (error) {
     console.error("Database Error fetching progress:", error);
@@ -449,68 +289,7 @@ export async function updateAccount(id: number, data: { email?: string; username
   }
 }
 
-/**
- * Fetches all morphemes from the database.
- */
-export async function getAllMorphemes() {
-  try {
-    const morphemes = await prisma.morpheme.findMany({
-      orderBy: {
-        text: 'asc',
-      },
-    });
-    return morphemes;
-  } catch (error) {
-    console.error("Database Error fetching morphemes:", error);
-    throw error;
-  }
-}
 
-/**
- * Links a Morpheme to a specific Word.
- */
-export async function addMorphemeToWord(
-  wordText: string,
-  morphemeText: string,
-  morphemeType: 'prefix' | 'root' | 'suffix',
-  meaning: string
-) {
-  const formattedWord = wordText.trim().toLowerCase();
-  const formattedMorpheme = morphemeText.trim().toLowerCase();
-  const formattedMeaning = meaning.trim();
 
-  try {
-    const wordMorphemeLink = await prisma.wordMorpheme.create({
-      data: {
-        word: {
-          connectOrCreate: {
-            where: { text: formattedWord },
-            create: { text: formattedWord },
-          },
-        },
-        morpheme: {
-          connectOrCreate: {
-            where: {
-              text_meaning: {
-                text: formattedMorpheme,
-                meaning: formattedMeaning,
-              }
-            },
-            create: { 
-              text: formattedMorpheme,
-              displaytext: formattedMorpheme,
-              meaning: formattedMeaning,
-              type: morphemeType
-            },
-          },
-        },
-      },
-    });
 
-    return wordMorphemeLink;
-  } catch (error) {
-    console.error("Database Error linking morpheme:", error);
-    throw error;
-  }
-}
 

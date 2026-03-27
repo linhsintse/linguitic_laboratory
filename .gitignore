@@ -4,3 +4,4 @@
 /app/client/dist
 /app/server/prisma/dev.db
 /app/calendar.ts
+/app/server/src/etymology.csv

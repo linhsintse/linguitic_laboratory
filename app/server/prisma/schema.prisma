@@ -11,7 +11,6 @@ model Word {
   id        Int              @id @default(autoincrement())
   text      String           @unique
   entries   WorksheetEntry[]
-  morphemes WordMorpheme[]
 }
 
 model Worksheet {
@@ -19,6 +18,17 @@ model Worksheet {
   name      String?
   createdAt DateTime         @default(now())
   entries   WorksheetEntry[]
+  columns   WorksheetColumn[]
+}
+
+model WorksheetColumn {
+  id          Int       @id @default(autoincrement())
+  worksheetId Int
+  columnIndex Int
+  name        String
+  worksheet   Worksheet @relation(fields: [worksheetId], references: [id], onDelete: Cascade)
+
+  @@unique([worksheetId, columnIndex])
 }
 
 model WorksheetEntry {
@@ -31,30 +41,7 @@ model WorksheetEntry {
   worksheet   Worksheet @relation(fields: [worksheetId], references: [id], onDelete: Cascade)
 }
 
-model Morpheme {
-  id        Int            @id @default(autoincrement())
-  type      String // 'prefix', 'root', 'suffix'
-  text      String
-  displaytext String
-  meaning   String
-  origin    String? // e.g., 'OE', 'L', 'G', 'F'
-  frequency Int? // 1-100 score
-  category  String? // Maps to Category, Semantic Field, or Transformation
-  words     WordMorpheme[]
 
-  @@unique([text, meaning])
-}
-
-// Explicit Many-to-Many Join Table
-model WordMorpheme {
-  wordId     Int
-  morphemeId Int
-  word       Word     @relation(fields: [wordId], references: [id])
-  morpheme   Morpheme @relation(fields: [morphemeId], references: [id])
-
-  // The combination of word and morpheme must be unique
-  @@id([wordId, morphemeId])
-}
 
 model User {
   id       Int     @id @default(autoincrement())
