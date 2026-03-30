@@ -8,15 +8,15 @@ datasource db {
 }
 
 model Word {
-  id        Int              @id @default(autoincrement())
-  text      String           @unique
-  entries   WorksheetEntry[]
+  id      Int              @id @default(autoincrement())
+  text    String           @unique
+  entries WorksheetEntry[]
 }
 
 model Worksheet {
-  id        Int              @id @default(autoincrement())
+  id        Int               @id @default(autoincrement())
   name      String?
-  createdAt DateTime         @default(now())
+  createdAt DateTime          @default(now())
   entries   WorksheetEntry[]
   columns   WorksheetColumn[]
 }
@@ -41,16 +41,14 @@ model WorksheetEntry {
   worksheet   Worksheet @relation(fields: [worksheetId], references: [id], onDelete: Cascade)
 }
 
-
-
 model User {
-  id       Int     @id @default(autoincrement())
-  email    String  @unique
-  username String  @unique
-  firstname     String?
-  lastname      String?
-  role          String?
-  password String
+  id        Int     @id @default(autoincrement())
+  email     String  @unique
+  username  String  @unique
+  firstname String?
+  lastname  String?
+  role      String?
+  password  String
 }
 
 model Etymology {
@@ -66,4 +64,24 @@ model Etymology {
   group_tag       String?
   parent_tag      String?
   parent_position Int?
+}
+
+model KaikkiEtymology {
+  id Int @id @default(autoincrement())
+
+  // The Target Word
+  term String
+  lang String?
+  pos  String? // Part of speech (noun, verb, etc. - highly useful for filtering later)
+
+  // The Morphological Component
+  template_name String // e.g., 'prefix', 'suffix', 'affix', 'compound', 'inherited'
+  morpheme      String // The extracted component (e.g., 'un-', 'state', 'ment')
+  morpheme_lang String? // The language code of the component
+  position      Int // The argument index to maintain left-to-right morphological order
+
+  // Indexes are critical here since we are not using Foreign Keys for the dictionary data
+  @@index([term])
+  @@index([morpheme])
+  @@index([template_name])
 }

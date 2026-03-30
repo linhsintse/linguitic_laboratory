@@ -155,21 +155,19 @@ app.get('/api/account', async (req, res) => {
 
 app.get('/api/etymology/:word', async (req, res) => {
   try {
-    // Normalize the word to lowercase to match the database format
     const word = req.params.word.toLowerCase();
     
-    // Allow an optional language query parameter (e.g., ?lang=fr), defaulting to English
-    const lang = (req.query.lang as string) || 'English'; 
+    // Update default from 'English' to 'en'
+    const lang = (req.query.lang as string) || 'en'; 
 
     const etymologyData = await getWordEtymology(word, lang);
     
-    // Return a 404 if no records match, which our frontend uses to display an empty state
     if (!etymologyData || etymologyData.length === 0) {
       return res.status(404).json({ error: "No etymology data found for this term." });
     }
 
     res.status(200).json(etymologyData);
-  } catch (error) {``
+  } catch (error) {
     console.error("Failed to fetch etymology:", error);
     res.status(500).json({ error: "Internal server error." });
   }
@@ -177,11 +175,11 @@ app.get('/api/etymology/:word', async (req, res) => {
 
 app.post('/api/account', async (req, res) => {
     try {
-        const { email, username, name, password } = req.body;
+        const { email, username, firstname, lastname, password } = req.body;
         if (!email || !username || !password) {
             return res.status(400).json({ error: "Email, username, and password are required." });
         }
-        const newAccount = await createAccount({ email, username, name, password });
+        const newAccount = await createAccount({ email, username, firstname, lastname, password });
         res.status(201).json(newAccount);
     } catch (error) {
         console.error("Failed to create account:", error);

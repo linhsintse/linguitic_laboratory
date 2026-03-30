@@ -226,7 +226,8 @@ export async function getAccount() {
         id: true,
         email: true,
         username: true,
-        name: true,
+        firstname: true,
+        lastname: true
       }
     });
     return user;
@@ -239,20 +240,22 @@ export async function getAccount() {
 /**
  * Creates a new user account.
  */
-export async function createAccount(data: { email: string; username: string; name: string | null; password?: string }) {
+export async function createAccount(data: { email: string; username: string; firstname: string | null; lastname: string | null ;password?: string }) {
   try {
     const user = await prisma.user.create({
       data: {
         email: data.email,
         username: data.username,
-        name: data.name,
+        firstname: data.firstname,
+        lastname: data.lastname,
         password: data.password || 'password', // Default password if not provided
       },
       select: {
         id: true,
         email: true,
         username: true,
-        name: true,
+        firstname: true,
+        lastname: true
       }
     });
     return user;
@@ -279,7 +282,8 @@ export async function updateAccount(id: number, data: { email?: string; username
         id: true,
         email: true,
         username: true,
-        name: true,
+        firstname: true,
+        lastname: true
       }
     });
     return user;
@@ -289,20 +293,15 @@ export async function updateAccount(id: number, data: { email?: string; username
   }
 }
 
-/**
- * Fetches etymological origins for a specific word.
- * Defaults to English ('en') to filter out foreign homographs.
- */
-export async function getWordEtymology(term: string, lang: string = 'English') {
+export async function getWordEtymology(term: string, lang: string = 'en') {
   try {
-    return await prisma.etymology.findMany({
+    return await prisma.kaikkiEtymology.findMany({
       where: {
         term: term,
-        lang: lang
+        lang: lang 
       },
-      // Order by position to maintain compound/nested structures accurately
       orderBy: {
-        position: 'asc'
+        position: 'asc' // Maintains the correct un- + believe + -able order
       }
     });
   } catch (error) {
@@ -310,7 +309,4 @@ export async function getWordEtymology(term: string, lang: string = 'English') {
     throw error;
   }
 }
-
-
-
 
