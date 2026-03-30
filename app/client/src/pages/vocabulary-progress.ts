@@ -1,3 +1,5 @@
+import { authService } from '../auth';
+
 const API_URL = 'http://localhost:3000/api';
 
 interface TopMorpheme {
@@ -19,8 +21,19 @@ interface Progress {
 }
 
 export async function renderVocabularyProgress(element: HTMLElement) {
+    const urlParams = new URLSearchParams(window.location.search);
+    const studentIdParam = urlParams.get('studentId');
+    const isTeacherView = studentIdParam !== null && authService.getUser()?.role !== 'student';
+
+    const teacherBanner = isTeacherView ?
+        `<div class="bg-blue-50 text-blue-800 p-4 mb-4 rounded flex justify-between items-center shadow-sm">
+            <span>Viewing progress for student ID: ${studentIdParam}</span>
+            <a href="/students" data-navigo class="bg-blue-200 text-blue-900 px-3 py-1 rounded text-sm hover:bg-blue-300 transition">Back to Students</a>
+        </div>` : '';
+
     element.innerHTML = `
         <div class="p-8 max-w-7xl mx-auto bg-gray-50 min-h-screen">
+            ${teacherBanner}
             <div id="progress-data" class="space-y-8">
                 <div class="text-sm text-gray-500 italic p-4 text-center">Loading progress...</div>
             </div>
@@ -28,7 +41,10 @@ export async function renderVocabularyProgress(element: HTMLElement) {
     `;
 
     try {
-        const response = await fetch(`${API_URL}/progress`);
+        const query = studentIdParam ? `?studentId=${studentIdParam}` : '';
+        const response = await fetch(`${API_URL}/progress${query}`, {
+            headers: authService.getHeaders()
+        });
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
