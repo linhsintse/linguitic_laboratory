@@ -227,7 +227,11 @@ app.post('/api/auth/register', async (req, res) => {
 
         const newAccount = await createAccount({ email, username, firstname, lastname, password, role });
 
-        const token = jwt.sign({ id: newAccount.id, role: newAccount.role, email: newAccount.email }, JWT_SECRET, { expiresIn: '1d' });
+        const token = jwt.sign(
+          { userId: newAccount.id, role: newAccount.role, email: newAccount.email }, 
+          JWT_SECRET, 
+          { expiresIn: '1d' }
+        );
 
         res.status(201).json({ user: newAccount, token });
     } catch (error) {
@@ -249,7 +253,12 @@ app.post('/api/auth/login', async (req, res) => {
         }
 
         const expiresIn = rememberMe ? '30d' : '1d';
-        const token = jwt.sign({ userid: user.id, role: user.role, email: user.email }, JWT_SECRET, { expiresIn });
+        
+        const token = jwt.sign(
+          { userId: user.id, role: user.role, email: user.email }, 
+          JWT_SECRET, 
+          { expiresIn }
+        );
 
         // omit password from response
         const { password: _, ...userWithoutPassword } = user;
