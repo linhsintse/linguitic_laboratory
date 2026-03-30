@@ -9,7 +9,9 @@ const prisma = new PrismaClient();
 export async function getWorksheets(userId: number) {
   try {
     return await prisma.worksheet.findMany({
-      where: { userId },
+      where: { 
+        id: userId 
+      },
       orderBy: {
         createdAt: 'desc',
       },
@@ -458,4 +460,3 @@ export async function getWordEtymology(term: string, lang: string = 'en') {
     throw error;
   }
 }
-

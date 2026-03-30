@@ -52,7 +52,7 @@ model User {
   role      String?     @default("student")
   password  String
   teacherId Int?
-  teacher   User?       @relation("StudentTeacher", fields: [teacherId], references: [id])
+  teacher   User?       @relation("StudentTeacher", fields: [teacherId], references: [id], onDelete: Cascade)
   students  User[]      @relation("StudentTeacher")
   worksheets Worksheet[]
 }

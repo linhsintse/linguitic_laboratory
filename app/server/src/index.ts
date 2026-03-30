@@ -21,13 +21,13 @@ import {
 } from './database';
 
 const app = express();
-const JWT_SECRET = process.env.JWT_SECRET || 'supersecretkey123';
+const JWT_SECRET = process.env.JWT_SECRET || 'masteroverride';
 
 // Augment express request with user
 declare global {
   namespace Express {
     interface Request {
-      user?: { id: number; role: string; email: string };
+      user?: { userId: number; role: string; email: string };
     }
   }
 }
@@ -39,9 +39,9 @@ export function authenticateToken(req: express.Request, res: express.Response, n
 
   if (token == null) return res.sendStatus(401);
 
-  jwt.verify(token, JWT_SECRET, (err: any, user: any) => {
+  jwt.verify(token, JWT_SECRET, (err: any, decodedUser) => {
     if (err) return res.sendStatus(403);
-    req.user = user as { id: number; role: string; email: string };
+    req.user = decodedUser as { userId: number, role: string, email: string };
     next();
   });
 }
@@ -55,10 +55,10 @@ app.get('/api/worksheets', authenticateToken, async (req, res) => {
     if (!req.user) return res.sendStatus(401);
 
     // allow teacher to view student worksheets via query param
-    const targetUserId = req.query.studentId ? parseInt(req.query.studentId as string) : req.user.id;
+    const targetUserId = req.query.studentId ? parseInt(req.query.studentId as string) : req.user.userId;
 
     // basic authorization: only teacher/admin can view someone else's worksheets
-    if (targetUserId !== req.user.id && req.user.role === 'student') {
+    if (targetUserId !== req.user.userId && req.user.role === 'student') {
         return res.status(403).json({ error: "Forbidden" });
     }
 
@@ -74,7 +74,7 @@ app.post('/api/worksheets', authenticateToken, async (req, res) => {
   try {
     if (!req.user) return res.sendStatus(401);
     const { name } = req.body;
-    const newWorksheet = await createWorksheet(req.user.id, name);
+    const newWorksheet = await createWorksheet(req.user.userId, name);
     res.status(201).json(newWorksheet);
   } catch (error) {
     console.error("Failed to create worksheet:", error);
@@ -88,7 +88,7 @@ app.patch('/api/worksheets/:id', authenticateToken, async (req, res) => {
     const id = parseInt(req.params.id);
     const { name } = req.body;
     if (isNaN(id)) return res.status(400).json({ error: "Invalid worksheet ID." });
-    const updatedWorksheet = await updateWorksheetName(req.user.id, id, name);
+    const updatedWorksheet = await updateWorksheetName(req.user.userId, id, name);
     res.status(200).json(updatedWorksheet);
   } catch (error) {
     console.error("Failed to update worksheet:", error);
@@ -101,7 +101,7 @@ app.delete('/api/worksheets/:id', authenticateToken, async (req, res) => {
     if (!req.user) return res.sendStatus(401);
     const id = parseInt(req.params.id);
     if (isNaN(id)) return res.status(400).json({ error: "Invalid worksheet ID." });
-    await deleteWorksheet(req.user.id, id);
+    await deleteWorksheet(req.user.userId, id);
     res.status(204).send();
   } catch (error) {
     console.error("Failed to delete worksheet:", error);
@@ -116,7 +116,7 @@ app.patch('/api/worksheets/:id/columns', authenticateToken, async (req, res) => 
     const { columnIndex, name } = req.body;
     if (isNaN(worksheetId)) return res.status(400).json({ error: "Invalid worksheet ID." });
     if (columnIndex === undefined || !name) return res.status(400).json({ error: "Missing columnIndex or name." });
-    const updatedColumn = await updateWorksheetColumnName(req.user.id, worksheetId, columnIndex, name);
+    const updatedColumn = await updateWorksheetColumnName(req.user.userId, worksheetId, columnIndex, name);
     res.status(200).json(updatedColumn);
   } catch (error) {
     console.error("Failed to update worksheet column:", error);
@@ -132,9 +132,9 @@ app.get('/api/worksheets/:id/words', authenticateToken, async (req, res) => {
     const id = parseInt(req.params.id);
     if (isNaN(id)) return res.status(400).json({ error: "Invalid worksheet ID." });
 
-    const targetUserId = req.query.studentId ? parseInt(req.query.studentId as string) : req.user.id;
+    const targetUserId = req.query.studentId ? parseInt(req.query.studentId as string) : req.user.userId;
 
-    if (targetUserId !== req.user.id && req.user.role === 'student') {
+    if (targetUserId !== req.user.userId && req.user.role === 'student') {
         return res.status(403).json({ error: "Forbidden" });
     }
 
@@ -154,7 +154,7 @@ app.post('/api/worksheets/:id/words', authenticateToken, async (req, res) => {
 
     if (isNaN(worksheetId)) return res.status(400).json({ error: "Invalid worksheet ID." });
 
-    const newEntry = await addWordToWorksheet(req.user.id, worksheetId, wordText, columnIndex, position);
+    const newEntry = await addWordToWorksheet(req.user.userId, worksheetId, wordText, columnIndex, position);
     res.status(201).json(newEntry);
   } catch (error) {
     console.error("Failed to add word:", error);
@@ -181,9 +181,9 @@ app.get('/api/words/search', async (req, res) => {
 app.get('/api/progress', authenticateToken, async (req, res) => {
     try {
         if (!req.user) return res.sendStatus(401);
-        const targetUserId = req.query.studentId ? parseInt(req.query.studentId as string) : req.user.id;
+        const targetUserId = req.query.studentId ? parseInt(req.query.studentId as string) : req.user.userId;
 
-        if (targetUserId !== req.user.id && req.user.role === 'student') {
+        if (targetUserId !== req.user.userId && req.user.role === 'student') {
             return res.status(403).json({ error: "Forbidden" });
         }
 
@@ -202,7 +202,7 @@ app.get('/api/teacher/students', authenticateToken, async (req, res) => {
             return res.status(403).json({ error: "Forbidden" });
         }
 
-        const students = await getStudentsByTeacher(req.user.id);
+        const students = await getStudentsByTeacher(req.user.userId);
         res.status(200).json(students);
     } catch (error) {
         console.error("Failed to fetch students:", error);
@@ -249,7 +249,7 @@ app.post('/api/auth/login', async (req, res) => {
         }
 
         const expiresIn = rememberMe ? '30d' : '1d';
-        const token = jwt.sign({ id: user.id, role: user.role, email: user.email }, JWT_SECRET, { expiresIn });
+        const token = jwt.sign({ userid: user.id, role: user.role, email: user.email }, JWT_SECRET, { expiresIn });
 
         // omit password from response
         const { password: _, ...userWithoutPassword } = user;
@@ -264,7 +264,7 @@ app.post('/api/auth/login', async (req, res) => {
 app.get('/api/auth/me', authenticateToken, async (req, res) => {
     try {
         if (!req.user) return res.status(401).json({ error: "Unauthorized" });
-        const account = await getAccount(req.user.id);
+        const account = await getAccount(req.user.userId);
         if (account) {
             res.status(200).json(account);
         } else {
@@ -279,7 +279,7 @@ app.get('/api/auth/me', authenticateToken, async (req, res) => {
 app.get('/api/account', authenticateToken, async (req, res) => {
     try {
         if (!req.user) return res.status(401).json({ error: "Unauthorized" });
-        const account = await getAccount(req.user.id);
+        const account = await getAccount(req.user.userId);
         if (account) {
             res.status(200).json(account);
         } else {
@@ -314,7 +314,7 @@ app.get('/api/etymology/:word', async (req, res) => {
 app.put('/api/account', authenticateToken, async (req, res) => {
     try {
         if (!req.user) return res.status(401).json({ error: "Unauthorized" });
-        const account = await getAccount(req.user.id);
+        const account = await getAccount(req.user.userId);
         if (!account) {
             return res.status(404).json({ error: "Account not found to update." });
         }
