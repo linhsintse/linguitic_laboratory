@@ -25,6 +25,54 @@ export async function getWorksheets(userId: number) {
   }
 }
 
+export async function getAllTeachers() {
+  try {
+    const teachers = await prisma.user.findMany({
+      where: { role: 'teacher' },
+      select: {
+        id: true,
+        email: true,
+        username: true,
+        firstname: true,
+        lastname: true
+      }
+    });
+    return teachers;
+  } catch (error) {
+    console.error("Database Error fetching teachers:", error);
+    throw error;
+  }
+}
+
+export async function assignStudentToTeacher(teacherId: number, studentEmail: string) {
+  try {
+    const student = await prisma.user.findUnique({
+      where: { email: studentEmail },
+    });
+    if (!student) {
+      throw new Error("Student not found.");
+    }
+    if (student.role !== 'student') {
+      throw new Error("User is not a student.");
+    }
+    const updatedStudent = await prisma.user.update({
+      where: { id: student.id },
+      data: { teacherId },
+      select: {
+        id: true,
+        email: true,
+        username: true,
+        firstname: true,
+        lastname: true,
+      }
+    });
+    return updatedStudent;
+  } catch (error) {
+    console.error("Database Error assigning student:", error);
+    throw error;
+  }
+}
+
 /**
  * Creates a new worksheet.
  */
