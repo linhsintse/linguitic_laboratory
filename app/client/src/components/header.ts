@@ -4,6 +4,8 @@ import { authService } from '../auth';
 export function renderHeader(element: HTMLElement, router: Navigo) {
     const user = authService.getUser();
     const role = user ? user.role : null;
+    const name = user ? user.firstname : null;
+
 
     let navLinks = '';
 
@@ -47,7 +49,7 @@ export function renderHeader(element: HTMLElement, router: Navigo) {
             <div class="flex items-center space-x-8" data-purpose="top-meta-nav">
                 <div class="flex items-center space-x-4">
                      <button class="bg-accent-black text-white text-[10px] font-bold py-2.5 px-6 uppercase tracking-widest hover:bg-gray-800 transition-colors" id="account-button" data-navigo href="/account">
-                        Account
+                    Hi, ${name || 'account'}
                     </button>
                 </div>
             </div>
