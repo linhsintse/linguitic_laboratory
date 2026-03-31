@@ -25,12 +25,15 @@ interface WorksheetEntry {
   };
 }
 
+import { authService } from '../auth';
+
 // The base URL for the backend API.
 const API_URL = 'http://localhost:3000/api';
 
 // --- State ---
 let worksheets: Worksheet[] = [];
 let currentWorksheetId: number | null = null;
+let currentStudentId: number | null = null;
 let wordsByColumn: { [key: number]: string[] } = {};
 let worksheetName: string = '';
 
@@ -67,7 +70,10 @@ function updateSlotUI(slot: HTMLElement, _colIndex: number, _position: number, w
 
 async function fetchWorksheets() {
     try {
-        const response = await fetch(`${API_URL}/worksheets`);
+        const query = currentStudentId ? `?studentId=${currentStudentId}` : '';
+        const response = await fetch(`${API_URL}/worksheets${query}`, {
+            headers: authService.getHeaders()
+        });
         if (!response.ok) throw new Error('Failed to fetch worksheets');
         worksheets = await response.json();
         if (worksheets.length > 0 && currentWorksheetId === null) {
@@ -83,7 +89,9 @@ async function createNewSheet() {
     try {
         const response = await fetch(`${API_URL}/worksheets`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+                ...authService.getHeaders()
+            },
             body: JSON.stringify({ name: 'New Worksheet' })
         });
         if (!response.ok) throw new Error('Failed to create worksheet');
@@ -103,7 +111,9 @@ async function renameCurrentSheet(name: string) {
     try {
         const response = await fetch(`${API_URL}/worksheets/${currentWorksheetId}`, {
             method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+                ...authService.getHeaders()
+            },
             body: JSON.stringify({ name })
         });
         if (!response.ok) throw new Error('Failed to rename worksheet');
@@ -119,7 +129,9 @@ async function renameColumn(worksheetId: number, columnIndex: number, name: stri
     try {
         await fetch(`${API_URL}/worksheets/${worksheetId}/columns`, {
             method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+                ...authService.getHeaders()
+            },
             body: JSON.stringify({ columnIndex, name })
         });
     } catch (error) {
@@ -136,7 +148,8 @@ async function deleteCurrentSheet() {
 
     try {
         const response = await fetch(`${API_URL}/worksheets/${currentWorksheetId}`, {
-            method: 'DELETE'
+            method: 'DELETE',
+            headers: authService.getHeaders()
         });
         if (!response.ok) throw new Error('Failed to delete worksheet');
         
@@ -373,7 +386,10 @@ export async function createAndPopulateWorksheet() {
  */
 async function fetchWords(worksheetId: number): Promise<WorksheetEntry[]> {
   try {
-    const response = await fetch(`${API_URL}/worksheets/${worksheetId}/words`);
+    const query = currentStudentId ? `?studentId=${currentStudentId}` : '';
+    const response = await fetch(`${API_URL}/worksheets/${worksheetId}/words${query}`, {
+        headers: authService.getHeaders()
+    });
     if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
     }
@@ -392,7 +408,9 @@ async function saveWordData(columnIndex: number, position: number, wordText: str
     try {
         await fetch(`${API_URL}/worksheets/${currentWorksheetId}/words`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+                ...authService.getHeaders()
+            },
             body: JSON.stringify({ wordText, columnIndex, position }),
         });
     } catch (error) {
@@ -474,22 +492,43 @@ function addEventListeners() {
 }
 
 export function renderWorksheet(element: HTMLElement) {
+    const urlParams = new URLSearchParams(window.location.search);
+    const studentIdParam = urlParams.get('studentId');
+    if (studentIdParam) {
+        currentStudentId = parseInt(studentIdParam);
+    } else {
+        currentStudentId = null;
+    }
+
+    const sheetIdParam = urlParams.get('sheetId');
+    if (sheetIdParam) {
+        currentWorksheetId = parseInt(sheetIdParam);
+    }
+
+    const isTeacherView = currentStudentId !== null && authService.getUser()?.role !== 'student';
+    const teacherBanner = isTeacherView ?
+        `<div class="bg-blue-50 text-blue-800 p-4 max-w-[95%] mx-auto mb-4 rounded flex justify-between items-center shadow-sm border border-blue-100">
+            <span>Viewing worksheets for student ID: ${currentStudentId}</span>
+            <a href="/students" data-navigo class="bg-blue-200 text-blue-900 px-3 py-1 rounded text-sm hover:bg-blue-300 transition">Back to Students</a>
+        </div>` : '';
+
     element.innerHTML = `
     <main class="worksheet-container p-4">
+        ${teacherBanner}
         <div class="flex justify-between items-center max-w-[95%] mx-auto mb-4 bg-white p-3 rounded-lg shadow-sm border border-gray-100">
              <div class="flex items-center space-x-4">
-                <input id="sheet-name-input" class="text-xl font-bold text-gray-800 border-b-2 border-transparent hover:border-gray-200 focus:border-academic-blue focus:outline-none bg-transparent py-1" placeholder="Sheet Name..." />
+                <input id="sheet-name-input" class="text-xl font-bold text-gray-800 border-b-2 border-transparent hover:border-gray-200 focus:border-academic-blue focus:outline-none bg-transparent py-1" placeholder="Sheet Name..." ${isTeacherView ? 'disabled' : ''} />
              </div>
              <div class="flex items-center space-x-2">
                 <select id="sheet-select" class="text-sm border-gray-300 rounded-md focus:ring-academic-blue focus:border-academic-blue bg-gray-50 py-1 pl-2 pr-8 mr-2">
                 </select>
                 <button id="prev-sheet-button" class="px-4 py-2 text-xs font-bold uppercase tracking-wider border border-gray-300 rounded-md hover:bg-gray-100 text-gray-600 transition-colors">Previous Sheet</button>
                 <button id="next-sheet-button" class="px-4 py-2 text-xs font-bold uppercase tracking-wider border border-gray-300 rounded-md hover:bg-gray-100 text-gray-600 transition-colors">Next Sheet</button>
-                <button id="delete-sheet-button" class="px-4 py-2 text-xs font-bold uppercase tracking-wider border border-red-300 rounded-md hover:bg-red-50 text-red-600 transition-colors">Delete Sheet</button>
-                <button id="new-sheet-button" class="px-4 py-2 text-xs font-bold uppercase tracking-wider bg-black text-white rounded-md hover:bg-gray-800 transition-colors">New Sheet</button>
+                <button id="delete-sheet-button" class="px-4 py-2 text-xs font-bold uppercase tracking-wider border border-red-300 rounded-md hover:bg-red-50 text-red-600 transition-colors ${isTeacherView ? 'hidden' : ''}">Delete Sheet</button>
+                <button id="new-sheet-button" class="px-4 py-2 text-xs font-bold uppercase tracking-wider bg-black text-white rounded-md hover:bg-gray-800 transition-colors ${isTeacherView ? 'hidden' : ''}">New Sheet</button>
              </div>
         </div>
-        <div class="worksheet-grid grid grid-cols-7 gap-0 bg-white border border-gray-200 shadow-lg max-w-[95%] mx-auto rounded-lg overflow-hidden" id="worksheet-grid">
+        <div class="worksheet-grid grid grid-cols-7 gap-0 bg-white border border-gray-200 shadow-lg max-w-[95%] mx-auto rounded-lg overflow-hidden ${isTeacherView ? 'opacity-90 pointer-events-none' : ''}" id="worksheet-grid">
         </div>
     </main>
     `;
