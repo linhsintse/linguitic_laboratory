@@ -1,6 +1,42 @@
 import Navigo from 'navigo';
+import { authService } from '../auth';
 
 export function renderHeader(element: HTMLElement, router: Navigo) {
+    const user = authService.getUser();
+    const role = user ? user.role : null;
+
+    let navLinks = '';
+
+    if (!user) {
+        navLinks = `
+            <a class="nav-link" href="/account" data-navigo>LOGIN</a>
+            <a class="nav-link" href="/about" data-navigo>ABOUT THIS WEBSITE</a>
+        `;
+    } else if (role === 'teacher') {
+        navLinks = `
+            <a class="nav-link" href="/students" data-navigo>STUDENTS</a>
+            <a class="nav-link" href="/vocabulary-progress" data-navigo>PROGRESS</a>
+            <a class="nav-link" href="/search" data-navigo>SEARCH</a>
+            <a class="nav-link" href="/about" data-navigo>ABOUT THIS WEBSITE</a>
+        `;
+    } else if (role === 'admin') {
+         navLinks = `
+            <a class="nav-link" href="/students" data-navigo>STUDENTS</a>
+            <a class="nav-link" href="/" data-navigo>WORKSHEET</a>
+            <a class="nav-link" href="/vocabulary-progress" data-navigo>PROGRESS</a>
+            <a class="nav-link" href="/search" data-navigo>SEARCH</a>
+            <a class="nav-link" href="/about" data-navigo>ABOUT THIS WEBSITE</a>
+        `;
+    } else {
+        // default to student
+        navLinks = `
+            <a class="nav-link" href="/" data-navigo>WORKSHEET</a>
+            <a class="nav-link" href="/vocabulary-progress" data-navigo>PROGRESS</a>
+            <a class="nav-link" href="/search" data-navigo>SEARCH</a>
+            <a class="nav-link" href="/about" data-navigo>ABOUT THIS WEBSITE</a>
+        `;
+    }
+
     const headerHTML = `
     <header class="px-8 pt-8 pb-4 border-b border-border-light bg-white sticky top-0 z-50">
         <div class="flex justify-between items-end mb-6">
@@ -17,10 +53,7 @@ export function renderHeader(element: HTMLElement, router: Navigo) {
             </div>
         </div>
         <nav class="flex items-center space-x-12">
-            <a class="nav-link" href="/" data-navigo>WORKSHEET</a>
-            <a class="nav-link" href="/vocabulary-progress" data-navigo>PROGRESS</a>
-            <a class="nav-link" href="/search" data-navigo>SEARCH</a>
-            <a class="nav-link" href="/about" data-navigo>ABOUT THIS WEBSITE</a>
+            ${navLinks}
         </nav>
     </header>
     `;

@@ -17,6 +17,8 @@ model Worksheet {
   id        Int               @id @default(autoincrement())
   name      String?
   createdAt DateTime          @default(now())
+  userId    Int
+  user      User              @relation(fields: [userId], references: [id], onDelete: Cascade)
   entries   WorksheetEntry[]
   columns   WorksheetColumn[]
 }
@@ -42,13 +44,17 @@ model WorksheetEntry {
 }
 
 model User {
-  id        Int     @id @default(autoincrement())
-  email     String  @unique
-  username  String  @unique
+  id        Int         @id @default(autoincrement())
+  email     String      @unique
+  username  String      @unique
   firstname String?
   lastname  String?
-  role      String?
+  role      String?     @default("student")
   password  String
+  teacherId Int?
+  teacher   User?       @relation("StudentTeacher", fields: [teacherId], references: [id])
+  students  User[]      @relation("StudentTeacher")
+  worksheets Worksheet[]
 }
 
 model Etymology {
