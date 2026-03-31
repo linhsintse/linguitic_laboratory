@@ -108,6 +108,10 @@ export async function updateWorksheetName(userId: number, id: number, name: stri
       where: { id, userId },
       data: { name },
     });
+    
+    return await prisma.worksheet.findUnique({
+      where: { id: id }
+    });
   } catch (error) {
     console.error("Database Error updating worksheet name:", error);
     throw error;
@@ -506,4 +510,3 @@ export async function getWordEtymology(term: string, lang: string = 'en') {
     throw error;
   }
 }
-
