@@ -11,6 +11,7 @@ interface WorksheetColumn {
   worksheetId: number;
   columnIndex: number;
   morpheme: string | null;
+  type: string;
 }
 
 interface WorksheetEntry {
@@ -125,13 +126,26 @@ async function renameCurrentSheet(name: string) {
     }
 }
 
-async function setMorpheme(worksheetId: number, columnIndex: number, morpheme: string) {
+async function setMorpheme(worksheetId: number, columnIndex: number, morpheme: string, type: string) {
     try {
         await fetch(`${API_URL}/worksheets/${worksheetId}/columns`, {
             method: 'PATCH',
             headers: { ...authService.getHeaders() },
-            body: JSON.stringify({ columnIndex, morpheme }) // Send morpheme
+            body: JSON.stringify({ columnIndex, morpheme, type }) // Send morpheme and type
         });
+
+        // Update local state to prevent re-render loss
+        const ws = worksheets.find(w => w.id === worksheetId);
+        if (ws) {
+            let col = ws.columns.find(c => c.columnIndex === columnIndex);
+            if (!col) {
+                col = { id: 0, worksheetId, columnIndex, morpheme: '', type: 'root' };
+                ws.columns.push(col);
+            }
+            col.morpheme = morpheme;
+            col.type = type;
+        }
+
     } catch (error) {
         console.error('Error updating column morpheme:', error);
     }
@@ -311,11 +325,19 @@ export async function createAndPopulateWorksheet() {
         const dayColumn = document.createElement('section');
         dayColumn.className = `day-column ${i === 6 ? '' : 'border-r border-gray-200'}`;
 
+        const colType = column?.type || 'root';
+
         dayColumn.innerHTML = `
-            <div class="bg-academic-gray border-b border-gray-200 p-2 flex justify-between items-center">
-                <input class="column-name-input text-[11px] font-bold uppercase tracking-wider bg-transparent focus:outline-none w-full" 
-                       value="${column ? column.morpheme : ''}" 
+            <div class="bg-academic-gray border-b border-gray-200 p-2 flex flex-col justify-between items-start gap-2">
+                <input class="column-name-input text-[11px] font-bold uppercase tracking-wider bg-transparent focus:outline-none w-full border-b border-transparent focus:border-academic-blue"
+                       value="${column && column.morpheme ? column.morpheme : ''}"
+                       placeholder="Focus.."
                        data-column-index="${i}" />
+                <div class="flex items-center gap-2 text-[10px] uppercase font-bold text-gray-500 w-full justify-start mt-1">
+                    <label class="flex items-center gap-1 cursor-pointer hover:text-gray-800 transition-colors"><input type="radio" name="col_type_${i}" value="prefix" ${colType === 'prefix' ? 'checked' : ''} class="col-type-radio w-3 h-3 text-academic-blue focus:ring-academic-blue border-gray-300" data-column-index="${i}"> Pre</label>
+                    <label class="flex items-center gap-1 cursor-pointer hover:text-gray-800 transition-colors"><input type="radio" name="col_type_${i}" value="root" ${colType === 'root' ? 'checked' : ''} class="col-type-radio w-3 h-3 text-academic-blue focus:ring-academic-blue border-gray-300" data-column-index="${i}"> Root</label>
+                    <label class="flex items-center gap-1 cursor-pointer hover:text-gray-800 transition-colors"><input type="radio" name="col_type_${i}" value="suffix" ${colType === 'suffix' ? 'checked' : ''} class="col-type-radio w-3 h-3 text-academic-blue focus:ring-academic-blue border-gray-300" data-column-index="${i}"> Suf</label>
+                </div>
             </div>
             <div class="word-slots-container">
                 ${Array(7).fill(0).map((_, j) => {
@@ -348,14 +370,35 @@ export async function createAndPopulateWorksheet() {
         worksheetGrid.appendChild(dayColumn);
     }
 
-    // Add event listeners for editing column names
+    // Add event listeners for editing column names and types
     worksheetGrid.querySelectorAll('.column-name-input').forEach(input => {
         input.addEventListener('blur', (e) => {
             const target = e.target as HTMLInputElement;
             const newName = target.value;
             const colIndex = parseInt(target.dataset.columnIndex!);
+
+            // Get current selected radio for this column
+            const radio = worksheetGrid.querySelector(`input[name="col_type_${colIndex}"]:checked`) as HTMLInputElement;
+            const currentType = radio ? radio.value : 'root';
+
             if (currentWorksheetId !== null) {
-                setMorpheme(currentWorksheetId, colIndex, newName);
+                setMorpheme(currentWorksheetId, colIndex, newName, currentType);
+            }
+        });
+    });
+
+    worksheetGrid.querySelectorAll('.col-type-radio').forEach(radio => {
+        radio.addEventListener('change', (e) => {
+            const target = e.target as HTMLInputElement;
+            const newType = target.value;
+            const colIndex = parseInt(target.dataset.columnIndex!);
+
+            // Get current text input for this column
+            const textInput = worksheetGrid.querySelector(`.column-name-input[data-column-index="${colIndex}"]`) as HTMLInputElement;
+            const currentName = textInput ? textInput.value : '';
+
+            if (currentWorksheetId !== null) {
+                setMorpheme(currentWorksheetId, colIndex, currentName, newType);
             }
         });
     });
