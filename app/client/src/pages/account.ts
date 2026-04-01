@@ -23,7 +23,7 @@ export async function renderAccount(element: HTMLElement) {
             headers: authService.getHeaders()
         });
 
-        if (response.status === 401 || response.status === 403) {
+        if (response.status === 401 || response.status === 403 || response.status === 404) {
             authService.logout();
             renderAuthForms(infoDiv);
             return;
