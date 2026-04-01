@@ -8,3 +8,4 @@
 /app/server/prisma/etymology.csv
 /app/server/prisma/kaikki.jsonl
 .DS_Store
+/app/deprecated

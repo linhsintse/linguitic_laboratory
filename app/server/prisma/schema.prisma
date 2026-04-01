@@ -57,21 +57,6 @@ model User {
   worksheets Worksheet[]
 }
 
-model Etymology {
-  id              Int     @id @default(autoincrement())
-  term_id         String
-  lang            String?
-  term            String?
-  reltype         String?
-  related_term_id String?
-  related_lang    String?
-  related_term    String?
-  position        Int?
-  group_tag       String?
-  parent_tag      String?
-  parent_position Int?
-}
-
 model KaikkiEtymology {
   id Int @id @default(autoincrement())
 
