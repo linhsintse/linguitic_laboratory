@@ -14,7 +14,7 @@ import {
   getAccount,
   createAccount,
   updateAccount,
-  updateWorksheetColumnName,
+  updateWorksheetColumnMorpheme,
   getWordEtymology,
   verifyAccount,
   getStudentsByTeacher,
@@ -115,10 +115,16 @@ app.patch('/api/worksheets/:id/columns', authenticateToken, async (req, res) => 
   try {
     if (!req.user) return res.sendStatus(401);
     const worksheetId = parseInt(req.params.id);
-    const { columnIndex, name } = req.body;
+    
+    // Expect 'morpheme' instead of 'name'
+    const { columnIndex, morpheme } = req.body; 
+    
     if (isNaN(worksheetId)) return res.status(400).json({ error: "Invalid worksheet ID." });
-    if (columnIndex === undefined || !name) return res.status(400).json({ error: "Missing columnIndex or name." });
-    const updatedColumn = await updateWorksheetColumnName(req.user.id, worksheetId, columnIndex, name);
+    if (columnIndex === undefined) return res.status(400).json({ error: "Missing columnIndex." });
+    
+    // Make sure you also rename this function inside src/database.ts
+    const updatedColumn = await updateWorksheetColumnMorpheme(req.user.id, worksheetId, columnIndex, morpheme);
+    
     res.status(200).json(updatedColumn);
   } catch (error) {
     console.error("Failed to update worksheet column:", error);

@@ -11,6 +11,6 @@
     "types": ["node"],
     "moduleResolution": "node"
   },
-  "include": ["src/**/*"],
+  "include": ["src/**/*", "../deprecated/test_ety.ts"],
   "exclude": ["node_modules", "**/*.spec.ts"]
 }

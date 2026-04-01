@@ -82,13 +82,13 @@ export async function createWorksheet(userId: number, name?: string) {
         userId: userId,
         columns: {
           create: [
-            { columnIndex: 0, name: 'COL 1' },
-            { columnIndex: 1, name: 'COL 2' },
-            { columnIndex: 2, name: 'COL 3' },
-            { columnIndex: 3, name: 'COL 4' },
-            { columnIndex: 4, name: 'COL 5' },
-            { columnIndex: 5, name: 'COL 6' },
-            { columnIndex: 6, name: 'COL 7' },
+            { columnIndex: 0, morpheme: 'focus..' },
+            { columnIndex: 1, morpheme: 'focus..' },
+            { columnIndex: 2, morpheme: 'focus..' },
+            { columnIndex: 3, morpheme: 'focus..' },
+            { columnIndex: 4, morpheme: 'focus..' },
+            { columnIndex: 5, morpheme: 'focus..' },
+            { columnIndex: 6, morpheme: 'focus..' },
           ],
         },
       },
@@ -121,7 +121,7 @@ export async function updateWorksheetName(userId: number, id: number, name: stri
 /**
  * Updates a worksheet column's name.
  */
-export async function updateWorksheetColumnName(userId: number, worksheetId: number, columnIndex: number, name: string) {
+export async function updateWorksheetColumnMorpheme(userId: number, worksheetId: number, columnIndex: number, morpheme: string) {
   try {
     const worksheet = await prisma.worksheet.findFirst({
         where: { id: worksheetId, userId }
@@ -137,7 +137,7 @@ export async function updateWorksheetColumnName(userId: number, worksheetId: num
             columnIndex
         }
       },
-      data: { name },
+      data: { morpheme },
     });
   } catch (error) {
     console.error("Database Error updating worksheet column name:", error);
@@ -276,93 +276,98 @@ export async function searchWords(query: string) {
 /**
  * Fetches the vocabulary progress (word and morpheme counts).
  */
-export async function getProgress(userId: number) {
+ export async function getProgress(userId: number) {
   try {
-    const totalWords = await prisma.word.count();
-    const totalLearned = await prisma.worksheetEntry.count({
-        where: {
-            worksheet: {
-                userId: userId
-            }
-        }
-    });
-    const sheetsCreated = await prisma.worksheet.count({
-        where: {
-            userId: userId
-        }
-    });
+      const totalWords = await prisma.word.count();
+      
+      const totalLearned = await prisma.worksheetEntry.count({
+          where: {
+              worksheet: {
+                  userId: userId
+              }
+          }
+      });
+      
+      const sheetsCreated = await prisma.worksheet.count({
+          where: {
+              userId: userId
+          }
+      });
 
-    // Get all words the user has learned
-    const learnedEntries = await prisma.worksheetEntry.findMany({
-        where: {
-            worksheet: {
-                userId: userId
-            }
-        },
-        include: {
-            word: true
-        }
-    });
+      // Fetch all worksheets, their columns (containing the target morphemes), and entries
+      const worksheets = await prisma.worksheet.findMany({
+          where: {
+              userId: userId
+          },
+          include: {
+              columns: true,
+              entries: true
+          }
+      });
 
-    const userWordTexts = Array.from(new Set(learnedEntries.map(e => e.word.text)));
+      let totalPrefixes = 0;
+      let totalSuffixes = 0;
+      let totalRoots = 0;
 
-    // Fetch etymology data for those words
-    const etymologies = await prisma.kaikkiEtymology.findMany({
-        where: {
-            term: {
-                in: userWordTexts
-            }
-        }
-    });
+      // morpheme -> count map
+      const morphemeCounts: Record<string, { type: string, count: number }> = {};
 
-    let totalPrefixes = 0;
-    let totalSuffixes = 0;
-    let totalRoots = 0;
+      for (const sheet of worksheets) {
+          // Map columnIndex to the morpheme string for this specific worksheet
+          const columnMorphemeMap = new Map<number, string>();
+          for (const col of sheet.columns) {
+              if (col.morpheme && col.morpheme.trim() !== '') {
+                  columnMorphemeMap.set(col.columnIndex, col.morpheme.trim().toLowerCase());
+              }
+          }
 
-    // morpheme -> count map
-    const morphemeCounts: Record<string, { type: string, count: number }> = {};
+          // Tally the entries based on their assigned column
+          for (const entry of sheet.entries) {
+              const mText = columnMorphemeMap.get(entry.columnIndex);
+              
+              if (mText) {
+                  if (!morphemeCounts[mText]) {
+                      // Determine type heuristically based on hyphen placement
+                      let type = 'root';
+                      if (mText.startsWith('-')) {
+                          type = 'suffix';
+                      } else if (mText.endsWith('-')) {
+                          type = 'prefix';
+                      }
+                      
+                      morphemeCounts[mText] = { type, count: 0 };
+                  }
+                  
+                  morphemeCounts[mText].count++;
 
-    for (const ety of etymologies) {
-        let type = 'root';
-        if (ety.template_name === 'prefix') type = 'prefix';
-        else if (ety.template_name === 'suffix') type = 'suffix';
-        else if (ety.template_name === 'affix') {
-             // Heuristic: if position 1, prefix. if position > 1, suffix.
-             // (Simplified, but works for the UI categories)
-             type = ety.position === 1 ? 'prefix' : 'suffix';
-        }
+                  // Update global counters
+                  if (morphemeCounts[mText].type === 'prefix') totalPrefixes++;
+                  else if (morphemeCounts[mText].type === 'suffix') totalSuffixes++;
+                  else totalRoots++;
+              }
+          }
+      }
 
-        if (type === 'prefix') totalPrefixes++;
-        else if (type === 'suffix') totalSuffixes++;
-        else totalRoots++;
+      const sortedMorphemes = Object.keys(morphemeCounts).map(k => ({
+          id: Math.random(), // arbitrary ID for frontend (see note below)
+          text: k,
+          type: morphemeCounts[k].type,
+          count: morphemeCounts[k].count
+      })).sort((a, b) => b.count - a.count);
 
-        const mKey = ety.morpheme;
-        if (!morphemeCounts[mKey]) {
-            morphemeCounts[mKey] = { type, count: 0 };
-        }
-        morphemeCounts[mKey].count++;
-    }
-
-    const sortedMorphemes = Object.keys(morphemeCounts).map(k => ({
-        id: Math.random(), // arbitrary ID for frontend
-        text: k,
-        type: morphemeCounts[k].type,
-        count: morphemeCounts[k].count
-    })).sort((a, b) => b.count - a.count);
-
-    return {
-        totalWords,
-        totalLearned,
-        weeksTracked: sheetsCreated,
-        totalMorphemes: totalPrefixes + totalSuffixes + totalRoots,
-        totalPrefixes,
-        totalSuffixes,
-        totalRoots,
-        topMorphemes: sortedMorphemes.slice(0, 5)
-    };
+      return {
+          totalWords,
+          totalLearned,
+          weeksTracked: sheetsCreated,
+          totalMorphemes: totalPrefixes + totalSuffixes + totalRoots,
+          totalPrefixes,
+          totalSuffixes,
+          totalRoots,
+          topMorphemes: sortedMorphemes.slice(0, 5)
+      };
   } catch (error) {
-    console.error("Database Error fetching progress:", error);
-    throw error;
+      console.error("Database Error fetching progress:", error);
+      throw error;
   }
 }
 

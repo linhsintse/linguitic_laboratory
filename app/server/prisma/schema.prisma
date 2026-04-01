@@ -27,7 +27,7 @@ model WorksheetColumn {
   id          Int       @id @default(autoincrement())
   worksheetId Int
   columnIndex Int
-  name        String
+  morpheme    String?
   worksheet   Worksheet @relation(fields: [worksheetId], references: [id], onDelete: Cascade)
 
   @@unique([worksheetId, columnIndex])
@@ -60,12 +60,10 @@ model User {
 model KaikkiEtymology {
   id Int @id @default(autoincrement())
 
-  // The Target Word
   term String
   lang String?
   pos  String? // Part of speech (noun, verb, etc. - highly useful for filtering later)
 
-  // The Morphological Component
   template_name String // e.g., 'prefix', 'suffix', 'affix', 'compound', 'inherited'
   morpheme      String // The extracted component (e.g., 'un-', 'state', 'ment')
   morpheme_lang String? // The language code of the component

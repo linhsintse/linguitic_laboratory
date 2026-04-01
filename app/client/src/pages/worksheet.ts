@@ -10,7 +10,7 @@ interface WorksheetColumn {
   id: number;
   worksheetId: number;
   columnIndex: number;
-  name: string;
+  morpheme: string | null;
 }
 
 interface WorksheetEntry {
@@ -125,17 +125,15 @@ async function renameCurrentSheet(name: string) {
     }
 }
 
-async function renameColumn(worksheetId: number, columnIndex: number, name: string) {
+async function setMorpheme(worksheetId: number, columnIndex: number, morpheme: string) {
     try {
         await fetch(`${API_URL}/worksheets/${worksheetId}/columns`, {
             method: 'PATCH',
-            headers: {
-                ...authService.getHeaders()
-            },
-            body: JSON.stringify({ columnIndex, name })
+            headers: { ...authService.getHeaders() },
+            body: JSON.stringify({ columnIndex, morpheme }) // Send morpheme
         });
     } catch (error) {
-        console.error('Error renaming column:', error);
+        console.error('Error updating column morpheme:', error);
     }
 }
 
@@ -316,7 +314,7 @@ export async function createAndPopulateWorksheet() {
         dayColumn.innerHTML = `
             <div class="bg-academic-gray border-b border-gray-200 p-2 flex justify-between items-center">
                 <input class="column-name-input text-[11px] font-bold uppercase tracking-wider bg-transparent focus:outline-none w-full" 
-                       value="${column ? column.name : ''}" 
+                       value="${column ? column.morpheme : ''}" 
                        data-column-index="${i}" />
             </div>
             <div class="word-slots-container">
@@ -357,7 +355,7 @@ export async function createAndPopulateWorksheet() {
             const newName = target.value;
             const colIndex = parseInt(target.dataset.columnIndex!);
             if (currentWorksheetId !== null) {
-                renameColumn(currentWorksheetId, colIndex, newName);
+                setMorpheme(currentWorksheetId, colIndex, newName);
             }
         });
     });
