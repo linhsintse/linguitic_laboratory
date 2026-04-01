@@ -127,7 +127,7 @@ export async function renderVocabularyProgress(element: HTMLElement) {
 
                         <div>
                             <h2 class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">MORPHEME ACTIVITY OVERVIEW</h2>
-                            <div class="bg-white border border-gray-200 p-6 h-[400px]">
+                            <div class="bg-white border border-gray-200 p-6 min-h-[400px] h-auto flex flex-col">
                                 <h3 class="font-bold text-gray-900 mb-6 uppercase tracking-wider text-sm">TOP 5 MOST USED MORPHEMES</h3>
                                 ${topMorphemesHtml}
                             </div>
@@ -155,7 +155,7 @@ export async function renderVocabularyProgress(element: HTMLElement) {
                         </div>
 
                         <div>
-                            <div class="bg-white border border-gray-200 p-8 h-[400px] flex flex-col">
+                            <div class="bg-white border border-gray-200 p-8 min-h-[400px] h-auto flex flex-col">
                                 <h3 class="font-bold text-gray-900 mb-12 uppercase tracking-wider text-sm">MORPHEME CATEGORY BREAKDOWN</h3>
                                 <div class="grid grid-cols-3 gap-8 flex-1">
                                     <!-- Prefixes -->

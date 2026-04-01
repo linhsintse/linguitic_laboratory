@@ -82,13 +82,13 @@ export async function createWorksheet(userId: number, name?: string) {
         userId: userId,
         columns: {
           create: [
-            { columnIndex: 0, morpheme: 'focus..' },
-            { columnIndex: 1, morpheme: 'focus..' },
-            { columnIndex: 2, morpheme: 'focus..' },
-            { columnIndex: 3, morpheme: 'focus..' },
-            { columnIndex: 4, morpheme: 'focus..' },
-            { columnIndex: 5, morpheme: 'focus..' },
-            { columnIndex: 6, morpheme: 'focus..' },
+            { columnIndex: 0, morpheme: 'focus..', type: 'root' },
+            { columnIndex: 1, morpheme: 'focus..', type: 'root' },
+            { columnIndex: 2, morpheme: 'focus..', type: 'root' },
+            { columnIndex: 3, morpheme: 'focus..', type: 'root' },
+            { columnIndex: 4, morpheme: 'focus..', type: 'root' },
+            { columnIndex: 5, morpheme: 'focus..', type: 'root' },
+            { columnIndex: 6, morpheme: 'focus..', type: 'root' },
           ],
         },
       },
@@ -121,7 +121,7 @@ export async function updateWorksheetName(userId: number, id: number, name: stri
 /**
  * Updates a worksheet column's name.
  */
-export async function updateWorksheetColumnMorpheme(userId: number, worksheetId: number, columnIndex: number, morpheme: string) {
+export async function updateWorksheetColumnMorpheme(userId: number, worksheetId: number, columnIndex: number, morpheme: string, type: string) {
   try {
     const worksheet = await prisma.worksheet.findFirst({
         where: { id: worksheetId, userId }
@@ -137,7 +137,7 @@ export async function updateWorksheetColumnMorpheme(userId: number, worksheetId:
             columnIndex
         }
       },
-      data: { morpheme },
+      data: { morpheme, type },
     });
   } catch (error) {
     console.error("Database Error updating worksheet column name:", error);
@@ -314,35 +314,36 @@ export async function searchWords(query: string) {
 
       for (const sheet of worksheets) {
           // Map columnIndex to the morpheme string for this specific worksheet
-          const columnMorphemeMap = new Map<number, string>();
+          const columnMorphemeMap = new Map<number, { text: string, type: string }>();
           for (const col of sheet.columns) {
               if (col.morpheme && col.morpheme.trim() !== '') {
-                  columnMorphemeMap.set(col.columnIndex, col.morpheme.trim().toLowerCase());
+                  columnMorphemeMap.set(col.columnIndex, {
+                      text: col.morpheme.trim().toLowerCase(),
+                      type: col.type || 'root'
+                  });
               }
           }
 
           // Tally the entries based on their assigned column
           for (const entry of sheet.entries) {
-              const mText = columnMorphemeMap.get(entry.columnIndex);
+              const mData = columnMorphemeMap.get(entry.columnIndex);
               
-              if (mText) {
+              if (mData) {
+                  const mText = mData.text;
+                  const mType = mData.type;
+
                   if (!morphemeCounts[mText]) {
-                      // Determine type heuristically based on hyphen placement
-                      let type = 'root';
-                      if (mText.startsWith('-')) {
-                          type = 'suffix';
-                      } else if (mText.endsWith('-')) {
-                          type = 'prefix';
-                      }
-                      
-                      morphemeCounts[mText] = { type, count: 0 };
+                      morphemeCounts[mText] = { type: mType, count: 0 };
+                  } else if (morphemeCounts[mText].type !== mType) {
+                      // Update type if it changed to keep latest state
+                      morphemeCounts[mText].type = mType;
                   }
                   
                   morphemeCounts[mText].count++;
 
                   // Update global counters
-                  if (morphemeCounts[mText].type === 'prefix') totalPrefixes++;
-                  else if (morphemeCounts[mText].type === 'suffix') totalSuffixes++;
+                  if (mType === 'prefix') totalPrefixes++;
+                  else if (mType === 'suffix') totalSuffixes++;
                   else totalRoots++;
               }
           }

@@ -116,14 +116,14 @@ app.patch('/api/worksheets/:id/columns', authenticateToken, async (req, res) => 
     if (!req.user) return res.sendStatus(401);
     const worksheetId = parseInt(req.params.id);
     
-    // Expect 'morpheme' instead of 'name'
-    const { columnIndex, morpheme } = req.body; 
+    // Expect 'morpheme' and 'type'
+    const { columnIndex, morpheme, type } = req.body;
     
     if (isNaN(worksheetId)) return res.status(400).json({ error: "Invalid worksheet ID." });
     if (columnIndex === undefined) return res.status(400).json({ error: "Missing columnIndex." });
     
     // Make sure you also rename this function inside src/database.ts
-    const updatedColumn = await updateWorksheetColumnMorpheme(req.user.id, worksheetId, columnIndex, morpheme);
+    const updatedColumn = await updateWorksheetColumnMorpheme(req.user.id, worksheetId, columnIndex, morpheme, type || 'root');
     
     res.status(200).json(updatedColumn);
   } catch (error) {

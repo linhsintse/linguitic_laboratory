@@ -28,6 +28,7 @@ model WorksheetColumn {
   worksheetId Int
   columnIndex Int
   morpheme    String?
+  type        String?   @default("root")
   worksheet   Worksheet @relation(fields: [worksheetId], references: [id], onDelete: Cascade)
 
   @@unique([worksheetId, columnIndex])
