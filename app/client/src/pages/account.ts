@@ -90,7 +90,7 @@ function renderAuthForms(container: HTMLElement) {
             <div class="bg-white p-6 rounded shadow border">
                 <h2 class="text-xl font-semibold mb-4">Login</h2>
                 <form id="login-form" class="flex flex-col gap-4">
-                    <input type="email" id="login-email" placeholder="Email" class="p-2 border rounded" required />
+                    <input type="text" id="login-identifier" placeholder="Username or Email" class="p-2 border rounded" required />
                     <input type="password" id="login-password" placeholder="Password" class="p-2 border rounded" required />
                     <label class="flex items-center gap-2 text-sm">
                         <input type="checkbox" id="login-remember" />
@@ -130,7 +130,7 @@ function setupAuthForms() {
     if (loginForm) {
         loginForm.addEventListener('submit', async (e) => {
             e.preventDefault();
-            const email = (document.getElementById('login-email') as HTMLInputElement).value;
+            const email = (document.getElementById('login-identifier') as HTMLInputElement).value;
             const password = (document.getElementById('login-password') as HTMLInputElement).value;
             const rememberMe = (document.getElementById('login-remember') as HTMLInputElement).checked;
             const msgEl = document.getElementById('login-message')!;

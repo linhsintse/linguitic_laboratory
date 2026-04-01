@@ -484,10 +484,15 @@ export async function updateAccount(id: number, data: { email?: string; username
   }
 }
 
-export async function verifyAccount(email: string, passwordPlain: string) {
+export async function verifyAccount(identifier: string, passwordPlain: string) {
   try {
-    const user = await prisma.user.findUnique({
-      where: { email }
+    const user = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { email: identifier },
+          { username: identifier }
+        ]
+      }
     });
     if (!user) return null;
     const match = await bcrypt.compare(passwordPlain, user.password);

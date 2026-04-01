@@ -277,14 +277,20 @@ app.post('/api/auth/register', async (req, res) => {
     }
 });
 
+// app/server/src/index.ts (Inside the auth routes section)
+
 app.post('/api/auth/login', async (req, res) => {
     try {
-        const { email, password, rememberMe } = req.body;
-        if (!email || !password) {
-            return res.status(400).json({ error: "Email and password are required." });
+        // Extract 'identifier', falling back to 'email' for backward compatibility
+        const identifier = req.body.identifier || req.body.email;
+        const password = req.body.password;
+        const rememberMe = req.body.rememberMe;
+        
+        if (!identifier || !password) {
+            return res.status(400).json({ error: "Email/Username and password are required." });
         }
 
-        const user = await verifyAccount(email, password);
+        const user = await verifyAccount(identifier, password);
         if (!user) {
             return res.status(401).json({ error: "Invalid credentials." });
         }
